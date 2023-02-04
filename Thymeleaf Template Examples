@@ -1,0 +1,23 @@
+<!-- create additional json node when the data type is date and type is proteceted -->
+
+<div>
+  <span th:each="user,iterStat : ${userList}">
+    <span th:if="${user.protect} and ${user.type?lower} == 'date'">
+      {
+        "name": "ENC-[[${user.name}]]",
+        "type": [
+          "null",
+          "bytes"
+        ]
+        [[${!iterStat.last ? ',' : ''}]]
+      }
+    </span>
+    <span th:unless="${user.protect} or ${user.type?lower} != 'date'">
+      {
+        "name": "[[${user.name}]]",
+        "type": "[[${user.type}]]"
+        [[${!iterStat.last ? ',' : ''}]]
+      }
+    </span>
+  </span>
+</div>
