@@ -21,3 +21,35 @@
     </span>
   </span>
 </div>
+
+
+
+[# th:each="user,iterStat : ${userList}"]
+[# th:if="${user.protect} and ${user.type?lower} == 'date'"]
+{
+"name": "ENC-[[${user.name}]]",
+"type": [
+"null",
+"bytes"
+]
+[[${!iterStat.last ? ',' : ''}]]
+}
+[/]
+[# th:if="${user.protect} and ${user.type?lower} == 'string'"]
+{
+"name": "ENC-[[${user.name}]]",
+"type": [
+"null",
+"bytes"
+]
+[[${!iterStat.last ? ',' : ''}]]
+}
+[/]
+[# th:unless="${user.protect} or ${user.type?lower} != 'date' and ${user.type?lower} != 'string'"]
+{
+"name": "[[${user.name}]]",
+"type": "[[${user.type}]]"
+[[${!iterStat.last ? ',' : ''}]]
+}
+[/]
+[/]
