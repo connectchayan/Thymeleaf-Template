@@ -53,3 +53,68 @@
 }
 [/]
 [/]
+
+Knowledge graph
+================================================
+   static class FieldsContainer {
+        List<Field> graph;
+    }
+
+    static class Field {
+        String name;
+        String keyingname;
+        String type;
+        List<String> rules;
+        String category;
+    }
+
+    public static void main(String[] args) throws Exception {
+        Gson gson = new Gson();
+        FieldsContainer fieldsContainer = gson.fromJson(new FileReader("file.json"), FieldsContainer.class);
+        Map<String, List<Field>> result = fieldsContainer.graph.stream()
+                .collect(Collectors.groupingBy(Field::getCategory));
+        System.out.println(result);
+    }
+}
+
+
+
+
+List<FieldEntity> fieldEntities = ...; // your list of FieldEntity objects
+Map<String, List<Field>> resultMap = ...; // your map of category to list of Field objects
+
+List<DataprepField> dataprepFields = fieldEntities.stream()
+    .map(fieldEntity -> {
+        Optional<Field> bestMatch = resultMap.getOrDefault(fieldEntity.category, Collections.emptyList()).stream()
+            .filter(field -> field.name.equalsIgnoreCase(fieldEntity.name))
+            .findFirst();
+        if (bestMatch.isPresent()) {
+            return new DataprepField(bestMatch.get().name, fieldEntity.type);
+        } else {
+            return null;
+        }
+    })
+    .filter(Objects::nonNull)
+    .collect(Collectors.toList());
+    
+    ====================================
+Eliminating duplicate    
+    
+Map<String, List<Field>> map = ...; // Your Map
+
+List<Field> combinedList = map.values().stream()
+    .flatMap(Collection::stream)
+    .distinct()
+    .collect(Collectors.toList());
+
+List<Field> protectList = combinedList.stream()
+    .filter(field -> field.isProtect())
+    .collect(Collectors.toList());
+
+List<Field> hashedList = combinedList.stream()
+    .filter(field -> field.isHashed())
+    .collect(Collectors.toList());
+
+List<Field> nullableList = combinedList.stream()
+    .filter(field -> field.isNullable())
+    .collect(Collectors.toList());
