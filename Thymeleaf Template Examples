@@ -118,3 +118,28 @@ List<Field> hashedList = combinedList.stream()
 List<Field> nullableList = combinedList.stream()
     .filter(field -> field.isNullable())
     .collect(Collectors.toList());
+    
+=================================================================
+Gson gson = new Gson();
+List<Field> fields = new ArrayList<>();
+
+try (Reader reader = new FileReader("path/to/jsonfile.json")) {
+    JsonObject root = gson.fromJson(reader, JsonObject.class);
+    JsonArray graph = root.getAsJsonArray("graph");
+    
+    for (JsonElement element : graph) {
+        Field field = gson.fromJson(element, Field.class);
+        fields.add(field);
+    }
+
+    Map<String, Map<String, List<Field>>> resultMap = fields.stream()
+            .collect(Collectors.groupingBy(Field::getCategory, Collectors.toMap(Field::getName, f -> f)));
+            
+    Map<String, Map<String, List<Field>>> finalResult = new HashMap<>();
+    finalResult.put("PII", resultMap);
+
+    System.out.println(gson.toJson(finalResult));
+} catch (IOException e) {
+    // handle exception
+}
+
