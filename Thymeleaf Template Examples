@@ -143,3 +143,74 @@ try (Reader reader = new FileReader("path/to/jsonfile.json")) {
     // handle exception
 }
 
+==========Big table =========
+
+@RestController
+@RequestMapping("/api/bigtable")
+public class BigtableController {
+
+  @Autowired
+  private BigtableService bigtableService;
+
+  @GetMapping("/fetch")
+  public Mono<ResponseEntity<Object>> fetchData() {
+    return bigtableService.fetchDataFromBigtable().map(data -> new ResponseEntity<>(data, HttpStatus.OK))
+        .onErrorResume(e -> Mono.just(new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR)));
+  }
+}
+
+@Service
+public class BigtableService {
+
+  private static final Logger LOG = LoggerFactory.getLogger(BigtableService.class);
+
+  private static final String BIGTABLE_PROJECT_ID = "your-bigtable-project-id";
+  private static final String BIGTABLE_INSTANCE_ID = "your-bigtable-instance-id";
+  private static final String BIGQUERY_PROJECT_ID = "your-bigquery-project-id";
+  private static final String BIGQUERY_DATASET_ID = "your-bigquery-dataset-id";
+  private static final String BIGQUERY_TABLE_ID = "your-bigquery-table-id";
+
+  private BigtableOptions bigtableOptions;
+  private BigtableDataClient bigtableClient;
+
+  @PostConstruct
+  public void initialize() {
+    bigtableOptions = BigtableOptions.newBuilder().setProjectId(BIGTABLE_PROJECT_ID)
+        .setInstanceId(BIGTABLE_INSTANCE_ID).build();
+    bigtableClient = BigtableDataClient.create(bigtableOptions);
+  }
+
+  public Mono<List<String>> fetchDataFromBigtable() {
+    LOG.info("Fetching data from Bigtable and BigQuery");
+    return Mono.fromCallable(() -> {
+      List<String> data = new ArrayList<>();
+      try (ReadSession readSession = bigtableClient.readSession(BIGQUERY_PROJECT_ID, BIGQUERY_DATASET_ID,
+          BIGQUERY_TABLE_ID, Serialization.JSON)) {
+        for (ReadRowsResponse response : readSession.readRows().iterateAll()) {
+          for (ReadRowsResponse.Row row : response.getRowsList()) {
+            data.add(row.getKey().toStringUtf8());
+          }
+        }
+      } catch (Exception e) {
+        LOG.error("Error while fetching data from Bigtable and BigQuery", e);
+        throw new RuntimeException("Error while fetching data from Bigtable and BigQuery", e);
+      }
+      return data;
+    });
+  }
+}
+
+=================================
+If else
+public Mono<List<Report>> createReport(UserSession session) {
+    return Mono.just(session)
+        .filter(UserSession::isExists)
+        .flatMap(this::reuseArtifacts)
+        .switchIfEmpty(createReport1(session)
+            .flatMap(report1 -> createReport2(session, report1))
+            .flatMap(report2 -> createReport3(session, report2))
+            .flatMap(report3 -> createReport4(session, report3))
+            .collectList()
+        );
+}
+===========================================================================
