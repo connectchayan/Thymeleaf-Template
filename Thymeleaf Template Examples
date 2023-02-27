@@ -245,4 +245,12 @@ Mono<Map<String, DataView>> resultMono = Mono.zip(dvList, profList)
 =======================================================
 ^NPUR_[^_]*_[^_]*_[0-9]{4}_VIEW$ Regex
 =============================================
+Mono<Map<String, DataView>> resultMono = Mono.zip(dvList, profList)
+    .map(tuple -> {
+        List<DataView> dvObjects = tuple.getT1();
+        List<Profile> profiles = tuple.getT2();
 
+        return dvObjects.stream()
+            .filter(dv -> profiles.stream().flatMap(profile -> profile.getInputIds().stream()).anyMatch(id -> id.equals(dv.getName())))
+            .collect(Collectors.toMap(DataView::getName, Function.identity()));
+    });
