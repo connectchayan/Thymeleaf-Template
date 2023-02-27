@@ -214,3 +214,33 @@ public Mono<List<Report>> createReport(UserSession session) {
         );
 }
 ===========================================================================
+
+
+Mono<List<DataView>> dvList = catalogservice.getDataview(sess);
+Mono<List<Profile>> profList = catalogservice.getProfile(sess);
+
+Mono<Map<String, DataView>> resultMono = Mono.zip(dvList, profList)
+    .flatMap(tuple -> {
+        List<DataView> dvObjects = tuple.getT1();
+        List<Profile> profiles = tuple.getT2();
+        
+        Map<String, DataView> result = new HashMap<>();
+        
+        for (Profile profile : profiles) {
+            for (String inputId : profile.getInputIds()) {
+                Optional<DataView> matchingDVOptional = dvObjects.stream()
+                    .filter(dv -> dv.getName().equals(inputId))
+                    .findFirst();
+                
+                matchingDVOptional.ifPresent(matchingDV -> {
+                    result.put(matchingDV.getName(), matchingDV);
+                });
+            }
+        }
+        
+        return Mono.just(result);
+    });
+=======================================================
+
+=======================================================
+^NPUR_[^_]*_[^_]*_[0-9]{4}_VIEW$ Regex
