@@ -254,3 +254,28 @@ Mono<Map<String, DataView>> resultMono = Mono.zip(dvList, profList)
             .filter(dv -> profiles.stream().flatMap(profile -> profile.getInputIds().stream()).anyMatch(id -> id.equals(dv.getName())))
             .collect(Collectors.toMap(DataView::getName, Function.identity()));
     });
+_-----------------------------------;
+
+Map<String, Profile> profiles = ...; // initialize with your profile data
+List<Dataview> dataViews = ...; // initialize with your dataview data
+
+// Find the Ingestion profile
+Profile ingestionProfile = profiles.get("Ingestion");
+
+// Filter the dataviews to only include those with names in the Ingestion profile's inputids
+List<Dataview> matchingDataviews = dataViews.stream()
+        .filter(dataview -> ingestionProfile.getInputIds().contains(dataview.getName()))
+        .collect(Collectors.toList());
+
+// Find the Standard dataview among the matching dataviews
+Optional<Dataview> standardDataviewOptional = matchingDataviews.stream()
+        .filter(dataview -> dataview.getName().equals("Standard"))
+        .findFirst();
+
+// Create a map to hold the result
+Map<String, Dataview> result = new HashMap<>();
+
+// If a Standard dataview was found, add it to the result map
+standardDataviewOptional.ifPresent(dataview -> result.put(dataview.getName(), dataview));
+
+
