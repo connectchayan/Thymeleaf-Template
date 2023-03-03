@@ -279,3 +279,54 @@ Map<String, Dataview> result = new HashMap<>();
 standardDataviewOptional.ifPresent(dataview -> result.put(dataview.getName(), dataview));
 
 
+======================================================================
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Mono;
+
+@RestController
+public class MyController {
+
+  private final MyService service;
+  private final Logger logger = LoggerFactory.getLogger(MyController.class);
+
+  public MyController(MyService service) {
+    this.service = service;
+  }
+
+  @GetMapping("/poll/{userid}")
+  public Mono<ResponseEntity<String>> getPoll(@PathVariable String userid) {
+    return service.getPoll(userid)
+      .flatMap(a -> createA(a))
+      .flatMap(a -> createB(a)
+        .switchIfEmpty(Mono.error(new RuntimeException("Error occurred")))
+      )
+      .doOnError(ex -> {
+        // log the error that occurs in the chain
+        logger.error("Error occurred in the reactive chain", ex);
+      })
+      .map(b -> {
+        // handle the result of the second flatMap
+        // return a HTTP response entity with the result
+        return ResponseEntity.ok().body(b);
+      })
+      .onErrorResume(ex -> {
+        // handle the error that occurs in the chain
+        // return a HTTP error response entity with the error message
+        String errorMessage = ex.getMessage();
+        return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body("Error occurred: " + errorMessage));
+      });
+  }
+
+  // createA and createB methods here
+
+}
+
+
+
