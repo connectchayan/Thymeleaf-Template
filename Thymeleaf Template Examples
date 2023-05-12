@@ -1,332 +1,186 @@
-<!-- create additional json node when the data type is date and type is proteceted -->
+@Configuration
+public class SecurityConfig {
+    @Value("${jwt.secret}") // Replace with your own property for JWT secret
+    private String jwtSecret;
 
-<div>
-  <span th:each="user,iterStat : ${userList}">
-    <span th:if="${user.protect} and ${user.type?lower} == 'date'">
-      {
-        "name": "ENC-[[${user.name}]]",
-        "type": [
-          "null",
-          "bytes"
-        ]
-        [[${!iterStat.last ? ',' : ''}]]
-      }
-    </span>
-    <span th:unless="${user.protect} or ${user.type?lower} != 'date'">
-      {
-        "name": "[[${user.name}]]",
-        "type": "[[${user.type}]]"
-        [[${!iterStat.last ? ',' : ''}]]
-      }
-    </span>
-  </span>
-</div>
+    @Value("${jwt.issuer}") // Replace with your own property for JWT issuer
+    private String jwtIssuer;
 
-
-
-[# th:each="user,iterStat : ${userList}"]
-[# th:if="${user.protect} and ${user.type?lower} == 'date'"]
-{
-"name": "ENC-[[${user.name}]]",
-"type": [
-"null",
-"bytes"
-]
-[[${!iterStat.last ? ',' : ''}]]
-}
-[/]
-[# th:if="${user.protect} and ${user.type?lower} == 'string'"]
-{
-"name": "ENC-[[${user.name}]]",
-"type": [
-"null",
-"bytes"
-]
-[[${!iterStat.last ? ',' : ''}]]
-}
-[/]
-[# th:unless="${user.protect} or ${user.type?lower} != 'date' and ${user.type?lower} != 'string'"]
-{
-"name": "[[${user.name}]]",
-"type": "[[${user.type}]]"
-[[${!iterStat.last ? ',' : ''}]]
-}
-[/]
-[/]
-
-Knowledge graph
-================================================
-   static class FieldsContainer {
-        List<Field> graph;
+    @Bean
+    public SecurityWebFilterChain securityWebFilterChain(
+            ServerHttpSecurity http,
+            ReactiveAuthenticationManager authenticationManager,
+            ReactiveAuthorizationManager<AuthorizationContext> authorizationManager,
+            ServerSecurityContextRepository securityContextRepository
+    ) {
+        return http
+                .authorizeExchange()
+                .pathMatchers("/author/**").hasAuthority("author")
+                .anyExchange().authenticated()
+                .and()
+                .addFilterAt(jwtAuthenticationWebFilter(authenticationManager), SecurityWebFiltersOrder.AUTHENTICATION)
+                .securityContextRepository(securityContextRepository)
+                .csrf().disable()
+                .build();
     }
 
-    static class Field {
-        String name;
-        String keyingname;
-        String type;
-        List<String> rules;
-        String category;
-    }
-
-    public static void main(String[] args) throws Exception {
-        Gson gson = new Gson();
-        FieldsContainer fieldsContainer = gson.fromJson(new FileReader("file.json"), FieldsContainer.class);
-        Map<String, List<Field>> result = fieldsContainer.graph.stream()
-                .collect(Collectors.groupingBy(Field::getCategory));
-        System.out.println(result);
-    }
-}
-
-
-
-
-List<FieldEntity> fieldEntities = ...; // your list of FieldEntity objects
-Map<String, List<Field>> resultMap = ...; // your map of category to list of Field objects
-
-List<DataprepField> dataprepFields = fieldEntities.stream()
-    .map(fieldEntity -> {
-        Optional<Field> bestMatch = resultMap.getOrDefault(fieldEntity.category, Collections.emptyList()).stream()
-            .filter(field -> field.name.equalsIgnoreCase(fieldEntity.name))
-            .findFirst();
-        if (bestMatch.isPresent()) {
-            return new DataprepField(bestMatch.get().name, fieldEntity.type);
-        } else {
-            return null;
-        }
-    })
-    .filter(Objects::nonNull)
-    .collect(Collectors.toList());
-    
-    ====================================
-Eliminating duplicate    
-    
-Map<String, List<Field>> map = ...; // Your Map
-
-List<Field> combinedList = map.values().stream()
-    .flatMap(Collection::stream)
-    .distinct()
-    .collect(Collectors.toList());
-
-List<Field> protectList = combinedList.stream()
-    .filter(field -> field.isProtect())
-    .collect(Collectors.toList());
-
-List<Field> hashedList = combinedList.stream()
-    .filter(field -> field.isHashed())
-    .collect(Collectors.toList());
-
-List<Field> nullableList = combinedList.stream()
-    .filter(field -> field.isNullable())
-    .collect(Collectors.toList());
-    
-=================================================================
-Gson gson = new Gson();
-List<Field> fields = new ArrayList<>();
-
-try (Reader reader = new FileReader("path/to/jsonfile.json")) {
-    JsonObject root = gson.fromJson(reader, JsonObject.class);
-    JsonArray graph = root.getAsJsonArray("graph");
-    
-    for (JsonElement element : graph) {
-        Field field = gson.fromJson(element, Field.class);
-        fields.add(field);
-    }
-
-    Map<String, Map<String, List<Field>>> resultMap = fields.stream()
-            .collect(Collectors.groupingBy(Field::getCategory, Collectors.toMap(Field::getName, f -> f)));
-            
-    Map<String, Map<String, List<Field>>> finalResult = new HashMap<>();
-    finalResult.put("PII", resultMap);
-
-    System.out.println(gson.toJson(finalResult));
-} catch (IOException e) {
-    // handle exception
-}
-
-==========Big table =========
-
-@RestController
-@RequestMapping("/api/bigtable")
-public class BigtableController {
-
-  @Autowired
-  private BigtableService bigtableService;
-
-  @GetMapping("/fetch")
-  public Mono<ResponseEntity<Object>> fetchData() {
-    return bigtableService.fetchDataFromBigtable().map(data -> new ResponseEntity<>(data, HttpStatus.OK))
-        .onErrorResume(e -> Mono.just(new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR)));
-  }
-}
-
-@Service
-public class BigtableService {
-
-  private static final Logger LOG = LoggerFactory.getLogger(BigtableService.class);
-
-  private static final String BIGTABLE_PROJECT_ID = "your-bigtable-project-id";
-  private static final String BIGTABLE_INSTANCE_ID = "your-bigtable-instance-id";
-  private static final String BIGQUERY_PROJECT_ID = "your-bigquery-project-id";
-  private static final String BIGQUERY_DATASET_ID = "your-bigquery-dataset-id";
-  private static final String BIGQUERY_TABLE_ID = "your-bigquery-table-id";
-
-  private BigtableOptions bigtableOptions;
-  private BigtableDataClient bigtableClient;
-
-  @PostConstruct
-  public void initialize() {
-    bigtableOptions = BigtableOptions.newBuilder().setProjectId(BIGTABLE_PROJECT_ID)
-        .setInstanceId(BIGTABLE_INSTANCE_ID).build();
-    bigtableClient = BigtableDataClient.create(bigtableOptions);
-  }
-
-  public Mono<List<String>> fetchDataFromBigtable() {
-    LOG.info("Fetching data from Bigtable and BigQuery");
-    return Mono.fromCallable(() -> {
-      List<String> data = new ArrayList<>();
-      try (ReadSession readSession = bigtableClient.readSession(BIGQUERY_PROJECT_ID, BIGQUERY_DATASET_ID,
-          BIGQUERY_TABLE_ID, Serialization.JSON)) {
-        for (ReadRowsResponse response : readSession.readRows().iterateAll()) {
-          for (ReadRowsResponse.Row row : response.getRowsList()) {
-            data.add(row.getKey().toStringUtf8());
-          }
-        }
-      } catch (Exception e) {
-        LOG.error("Error while fetching data from Bigtable and BigQuery", e);
-        throw new RuntimeException("Error while fetching data from Bigtable and BigQuery", e);
-      }
-      return data;
-    });
-  }
-}
-
-=================================
-If else
-public Mono<List<Report>> createReport(UserSession session) {
-    return Mono.just(session)
-        .filter(UserSession::isExists)
-        .flatMap(this::reuseArtifacts)
-        .switchIfEmpty(createReport1(session)
-            .flatMap(report1 -> createReport2(session, report1))
-            .flatMap(report2 -> createReport3(session, report2))
-            .flatMap(report3 -> createReport4(session, report3))
-            .collectList()
-        );
-}
-===========================================================================
-
-
-Mono<List<DataView>> dvList = catalogservice.getDataview(sess);
-Mono<List<Profile>> profList = catalogservice.getProfile(sess);
-
-Mono<Map<String, DataView>> resultMono = Mono.zip(dvList, profList)
-    .flatMap(tuple -> {
-        List<DataView> dvObjects = tuple.getT1();
-        List<Profile> profiles = tuple.getT2();
-        
-        Map<String, DataView> result = new HashMap<>();
-        
-        for (Profile profile : profiles) {
-            for (String inputId : profile.getInputIds()) {
-                Optional<DataView> matchingDVOptional = dvObjects.stream()
-                    .filter(dv -> dv.getName().equals(inputId))
-                    .findFirst();
-                
-                matchingDVOptional.ifPresent(matchingDV -> {
-                    result.put(matchingDV.getName(), matchingDV);
+    @Bean
+    public ReactiveAuthenticationManager authenticationManager(ReactiveUserDetailsService userDetailsService) {
+        return authentication -> userDetailsService.findByUsername(authentication.getName())
+                .flatMap(userDetails -> {
+                    String token = extractTokenFromRequest(authentication);
+                    Pair<String, String> authPrincipals = JWTUtils.extractAuthPrincipals(token);
+                    if (validateToken(token)) {
+                        List<SimpleGrantedAuthority> authorities = userDetails.getAuthorities().stream()
+                                .map(SimpleGrantedAuthority::new)
+                                .collect(Collectors.toList());
+                        Authentication authenticated = new UsernamePasswordAuthenticationToken(userDetails, null, authorities);
+                        return Mono.just(authenticated);
+                    } else {
+                        return Mono.empty();
+                    }
                 });
+    }
+
+    @Bean
+    public ReactiveAuthorizationManager<AuthorizationContext> authorizationManager() {
+        return (authentication, context) -> {
+            if (context.getExchange().getRequest().getPath().toString().startsWith("/author/")) {
+                return Flux.just(new AuthorizationDecision(authentication.getAuthorities().stream()
+                        .anyMatch(authority -> authority.getAuthority().equals("author"))));
             }
+            return Mono.just(new AuthorizationDecision(true));
+        };
+    }
+
+    @Bean
+    public WebFilter jwtAuthenticationWebFilter(ReactiveAuthenticationManager authenticationManager) {
+        AuthenticationWebFilter authenticationWebFilter = new AuthenticationWebFilter(authenticationManager);
+        authenticationWebFilter.setServerAuthenticationConverter(new JwtAuthenticationConverter(jwtSecret, jwtIssuer));
+        authenticationWebFilter.setRequiresAuthenticationMatcher(ServerWebExchangeMatchers.pathMatchers("/api/**")); // Adjust the path pattern for JWT authentication
+        return authenticationWebFilter;
+    }
+
+    @Bean
+    public ServerSecurityContextRepository securityContextRepository() {
+        return new WebSessionServerSecurityContextRepository();
+    }
+
+    private String extractTokenFromRequest(Authentication authentication) {
+        Object credentials = authentication.getCredentials();
+        if (credentials instanceof String) {
+            return (String) credentials;
         }
-        
-        return Mono.just(result);
-    });
-=======================================================
+        return null;
+    }
 
-=======================================================
-^NPUR_[^_]*_[^_]*_[0-9]{4}_VIEW$ Regex
-=============================================
-Mono<Map<String, DataView>> resultMono = Mono.zip(dvList, profList)
-    .map(tuple -> {
-        List<DataView> dvObjects = tuple.getT1();
-        List<Profile> profiles = tuple.getT2();
-
-        return dvObjects.stream()
-            .filter(dv -> profiles.stream().flatMap(profile -> profile.getInputIds().stream()).anyMatch(id -> id.equals(dv.getName())))
-            .collect(Collectors.toMap(DataView::getName, Function.identity()));
-    });
-_-----------------------------------;
-
-Map<String, Profile> profiles = ...; // initialize with your profile data
-List<Dataview> dataViews = ...; // initialize with your dataview data
-
-// Find the Ingestion profile
-Profile ingestionProfile = profiles.get("Ingestion");
-
-// Filter the dataviews to only include those with names in the Ingestion profile's inputids
-List<Dataview> matchingDataviews = dataViews.stream()
-        .filter(dataview -> ingestionProfile.getInputIds().contains(dataview.getName()))
-        .collect(Collectors.toList());
-
-// Find the Standard dataview among the matching dataviews
-Optional<Dataview> standardDataviewOptional = matchingDataviews.stream()
-        .filter(dataview -> dataview.getName().equals("Standard"))
-        .findFirst();
-
-// Create a map to hold the result
-Map<String, Dataview> result = new HashMap<>();
-
-// If a Standard dataview was found, add it to the result map
-standardDataviewOptional.ifPresent(dataview -> result.put(dataview.getName(), dataview));
+    private boolean validateToken(String token) {
+        Optional<JWTClaimsSet> claimsSet = JWTUtils.decodeClaims(token);
+        // Implement your token validation logic using JWTUtils or your preferred JWT library
+    }
+}
 
 
-======================================================================
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RestController;
+
+===========================================================
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
+import org.springframework.security.web.server.authentication.ServerAuthenticationConverter;
+import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
-@RestController
-public class MyController {
+public class JwtAuthenticationConverter implements ServerAuthenticationConverter {
+    private final String jwtSecret;
+    private final String jwtIssuer;
 
-  private final MyService service;
-  private final Logger logger = LoggerFactory.getLogger(MyController.class);
+    public JwtAuthenticationConverter(String jwtSecret, String jwtIssuer) {
+        this.jwtSecret = jwtSecret;
+        this.jwtIssuer = jwtIssuer;
+    }
 
-  public MyController(MyService service) {
-    this.service = service;
-  }
+    @Override
+    public Mono<Authentication> convert(ServerWebExchange exchange) {
+        String token = extractTokenFromRequest(exchange);
 
-  @GetMapping("/poll/{userid}")
-  public Mono<ResponseEntity<String>> getPoll(@PathVariable String userid) {
-    return service.getPoll(userid)
-      .flatMap(a -> createA(a))
-      .flatMap(a -> createB(a)
-        .switchIfEmpty(Mono.error(new RuntimeException("Error occurred")))
-      )
-      .doOnError(ex -> {
-        // log the error that occurs in the chain
-        logger.error("Error occurred in the reactive chain", ex);
-      })
-      .map(b -> {
-        // handle the result of the second flatMap
-        // return a HTTP response entity with the result
-        return ResponseEntity.ok().body(b);
-      })
-      .onErrorResume(ex -> {
-        // handle the error that occurs in the chain
-        // return a HTTP error response entity with the error message
-        String errorMessage = ex.getMessage();
-        return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-          .body("Error occurred: " + errorMessage));
-      });
-  }
+        // Validate the token and extract the principal and claims
+        Principal principal = validateTokenAndGetPrincipal(token);
+        Claims claims = validateTokenAndGetClaims(token);
 
-  // createA and createB methods here
+        // Store the principal and claims in the SecurityContext
+        return ReactiveSecurityContextHolder.getContext()
+                .map(context -> {
+                    context.setAuthentication(new UsernamePasswordAuthenticationToken(principal, claims));
+                    return context.getAuthentication();
+                });
+    }
 
+    private String extractTokenFromRequest(ServerWebExchange exchange) {
+        String authorizationHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+        if (StringUtils.hasText(authorizationHeader) && authorizationHeader.startsWith("Bearer ")) {
+            return authorizationHeader.substring(7);
+        }
+        return null;
+    }
+
+    private Principal validateTokenAndGetPrincipal(String token) {
+        // Validate the token and extract the principal
+        // (Implement your validation logic using your preferred JWT library)
+    }
+
+    private Claims validateTokenAndGetClaims(String token) {
+        // Validate the token and extract the claims
+        // (Implement your validation logic using your preferred JWT library)
+    }
 }
+  ===============================================================================
+  import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
+import org.springframework.security.web.server.authentication.ServerAuthenticationConverter;
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
 
+public class JwtAuthenticationConverter implements ServerAuthenticationConverter {
+    private final String jwtSecret;
+    private final String jwtIssuer;
 
+    public JwtAuthenticationConverter(String jwtSecret, String jwtIssuer) {
+        this.jwtSecret = jwtSecret;
+        this.jwtIssuer = jwtIssuer;
+    }
 
+    @Override
+    public Mono<Authentication> convert(ServerWebExchange exchange) {
+        String token = extractTokenFromRequest(exchange);
+
+        // Validate the token and extract the principal and claims
+        Principal principal = validateTokenAndGetPrincipal(token);
+        Claims claims = validateTokenAndGetClaims(token);
+
+        // Store the principal and claims in the SecurityContext
+        return ReactiveSecurityContextHolder.getContext()
+                .map(context -> {
+                    context.setAuthentication(new UsernamePasswordAuthenticationToken(principal, claims));
+                    return context.getAuthentication();
+                });
+    }
+
+    private String extractTokenFromRequest(ServerWebExchange exchange) {
+        String authorizationHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+        if (StringUtils.hasText(authorizationHeader) && authorizationHeader.startsWith("Bearer ")) {
+            return authorizationHeader.substring(7);
+        }
+        return null;
+    }
+
+    private Principal validateTokenAndGetPrincipal(String token) {
+        // Validate the token and extract the principal
+        // (Implement your validation logic using your preferred JWT library)
+    }
+
+    private Claims validateTokenAndGetClaims(String token) {
+        // Validate the token and extract the claims
+        // (Implement your validation logic using your preferred JWT library)
+    }
+}
