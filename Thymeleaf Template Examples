@@ -184,3 +184,68 @@ public class JwtAuthenticationConverter implements ServerAuthenticationConverter
         // (Implement your validation logic using your preferred JWT library)
     }
 }
+==========================================================================================
+
+private final ReactiveAuthenticationManager authenticationManager;
+
+    public AuthenticationFilter(ReactiveAuthenticationManager authenticationManager) {
+        this.authenticationManager = authenticationManager;
+    }
+
+    @Override
+    public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
+        return authenticate(exchange)
+                .flatMap(authentication -> {
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                    return authorize(exchange, authentication);
+                })
+                .switchIfEmpty(Mono.defer(() -> handleUnauthenticated(exchange)))
+                .flatMap(aVoid -> chain.filter(exchange))
+                .doFinally(signal -> SecurityContextHolder.clearContext());
+    }
+
+    private Mono<Void> authorize(ServerWebExchange exchange, Authentication authentication) {
+        // Implement your authorization logic here
+        // Check if the authenticated user has the necessary roles/permissions
+        // You can use Spring Security's authorization mechanisms
+        // For example, you can use method-level security annotations, custom logic, etc.
+        // You can access the user's authorities using authentication.getAuthorities()
+        // Return Mono.error if authorization fails, or Mono.empty() if it succeeds
+        return Mono.empty();
+    }
+
+    private Mono<Void> handleUnauthenticated(ServerWebExchange exchange) {
+        // Handle unauthenticated requests, e.g., return an HTTP 401 Unauthorized status
+        exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+        return exchange.getResponse().setComplete();
+    }
+
+    private Mono<Authentication> authenticate(ServerWebExchange exchange) {
+        String authorizationHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+
+        if (StringUtils.hasText(authorizationHeader) && authorizationHeader.startsWith(BEARER)) {
+            String jwtToken = authorizationHeader.substring(BEARER.length());
+
+            try {
+                Claims claims = Jwts.parser().parseClaimsJws(jwtToken).getBody();
+                String username = claims.getSubject();
+                String authorities = claims.get("authorities", String.class);
+
+                if (StringUtils.hasText(username) && StringUtils.hasText(authorities)) {
+                    UserDetails userDetails = new UserDetailsImpl(username,
+                            AuthorityUtils.commaSeparatedStringToAuthorityList(authorities));
+
+                    AbstractAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
+                            userDetails, null, userDetails.getAuthorities());
+
+                    return authenticationManager.authenticate(authenticationToken);
+                }
+            } catch (Exception e) {
+                // Handle token parsing or verification errors
+                throw new BadCredentialsException("Invalid token");
+            }
+        }
+
+        return Mono.empty();
+    }
+}
