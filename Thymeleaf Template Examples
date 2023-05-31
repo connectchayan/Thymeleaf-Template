@@ -268,3 +268,98 @@ private Mono<Void> authorize(ServerWebExchange exchange, Authentication authenti
     return Mono.error(new AccessDeniedException("Access denied"));
 }
 
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.mock.web.server.MockServerWebExchange;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextImpl;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.test.context.support.WithSecurityContextTestExecutionListener;
+import org.springframework.security.test.context.support.WithUserDetails;
+import org.springframework.security.test.context.support.WithSecurityContext;
+import org.springframework.security.test.context.support.WithSecurityContextFactory;
+import org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers;
+import org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.MockUserSpec;
+import org.springframework.test.web.reactive.server.WebTestClient;
+import reactor.core.publisher.Mono;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
+
+public class FilterTests {
+
+    @Test
+    public void testPublicPath() {
+        // Arrange
+        ServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/public"));
+        WebFilterChain chain = Mockito.mock(WebFilterChain.class);
+        Filter filter = new Filter();
+
+        // Act
+        Mono<Void> result = filter.filter(exchange, chain);
+
+        // Assert
+        StepVerifier.create(result)
+            .verifyComplete();
+        Mockito.verify(chain, Mockito.times(1)).filter(exchange);
+    }
+
+    @Test
+    public void testAuthenticatedPath() {
+        // Arrange
+        ServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/secured"));
+        WebFilterChain chain = Mockito.mock(WebFilterChain.class);
+        Authentication authentication = Mockito.mock(Authentication.class);
+        when(filter.authenticate(any())).thenReturn(Mono.just(authentication));
+        when(filter.authorize(any(), any())).thenReturn(Mono.just(authentication));
+        Filter filter = new Filter();
+
+        // Act
+        Mono<Void> result = filter.filter(exchange, chain);
+
+        // Assert
+        StepVerifier.create(result)
+            .verifyComplete();
+        Mockito.verify(chain, Mockito.times(1)).filter(exchange);
+        Mockito.verify(filter, Mockito.times(1)).authenticate(exchange);
+        Mockito.verify(filter, Mockito.times(1)).authorize(exchange, authentication);
+    }
+
+    @Test
+    public void testWebClientPublicPath() {
+        // Arrange
+        Filter filter = new Filter();
+        WebTestClient webClient = WebTestClient.bindToController(filter)
+            .configureClient()
+            .filter(SecurityMockServerConfigurers.csrf())
+            .build();
+
+        // Act
+        ResponseSpec response = webClient.method(HttpMethod.GET)
+            .uri("/public")
+            .exchange();
+
+        // Assert
+        response.expectStatus().isOk();
+    }
+
+    @Test
+    public void testWebClientAuthenticatedPath() {
+        // Arrange
+        Filter filter = new Filter();
+        WebTestClient webClient = WebTestClient.bindToController(filter)
+            .configureClient()
+            .filter(SecurityMockServerConfigurers.csrf())
+            .build();
+
+        // Act
+        ResponseSpec response = webClient.method(HttpMethod.GET)
+            .uri("/secured")
+            .exchange();
+
+        // Assert
+        response.expectStatus().isOk();
+    }
+}
