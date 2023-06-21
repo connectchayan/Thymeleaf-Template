@@ -1,1 +1,103 @@
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.BodyInserters;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
+
+@Service
+public class GitHubService {
+    private final WebClient webClient;
+    private final String token;
+
+    public GitHubService(WebClient.Builder webClientBuilder,
+                         @Value("${github.token}") String token) {
+        this.token = token;
+        this.webClient = webClientBuilder
+                .baseUrl("https://api.github.com")
+                .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .defaultHeader("X-GitHub-Api-Version", "2022-11-28")
+                .build();
+    }
+
+    public Mono<Void> commitFile(String owner, String repo, String path, String message, String content) {
+        CommitRequest commitRequest = new CommitRequest(message, content);
+
+        return webClient.put()
+                .uri("/repos/{owner}/{repo}/contents/{path}", owner, repo, path)
+                .header(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(commitRequest)
+                .retrieve()
+                .bodyToMono(Void.class);
+    }
+}
+==========================================================================================================
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class CommitRequest {
+    private String message;
+    private Committer committer;
+    private String content;
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    private static class Committer {
+        private String name;
+        private String email;
+    }
+}
+
+======================================================================================================
+
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+public class CommitController {
+    private final GitHubService gitHubService;
+
+    public CommitController(GitHubService gitHubService) {
+        this.gitHubService = gitHubService;
+    }
+
+    @PostMapping("/commit")
+    public void commitFile(@RequestBody CommitRequest request) {
+        gitHubService.commitFile("owner", "repo", "branch", "path/to/file.txt", request.getContent());
+    }
+}
+
+=================================================================================================================
+
+
+
+<dependencies>
+    <!-- Other dependencies -->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-webflux</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>io.projectreactor</groupId>
+        <artifactId>reactor-core</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-test</artifactId>
+        <scope>test</scope>
+    </dependency>
+</dependencies>
 
