@@ -1,134 +1,144 @@
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.BodyInserters;
-import org.springframework.web.reactive.function.client.WebClient;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
+import static org.mockito.Mockito.*;
 
-@Service
-public class GitHubService {
-    private final WebClient webClient;
-    private final String token;
+class GithubServiceTest {
 
-    public GitHubService(WebClient.Builder webClientBuilder,
-                         @Value("${github.token}") String token) {
-        this.token = token;
-        this.webClient = webClientBuilder
-                .baseUrl("https://api.github.com")
-                .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                .defaultHeader("X-GitHub-Api-Version", "2022-11-28")
-                .build();
+    @Mock
+    private GithubAuthService githubAuthService;
+
+    @Mock
+    private GitHubWebClientService gitHubWebClientService;
+
+    @InjectMocks
+    private GithubService githubService;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
     }
 
-    public Mono<Void> commitFile(String owner, String repo, String path, String message, String content) {
-        CommitRequest commitRequest = new CommitRequest(message, content);
+    @Test
+    void processBatch_ExistingBranch_CallsCommitFile() {
+        String branchName = "branch";
+        String fileContent = "content";
+        String fileName = "file.txt";
 
-        return webClient.put()
-                .uri("/repos/{owner}/{repo}/contents/{path}", owner, repo, path)
-                .header(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(commitRequest)
-                .retrieve()
-                .bodyToMono(Void.class);
+        GithubBranchResponse branchResponse = new GithubBranchResponse();
+        when(gitHubWebClientService.fetchBranchByName(branchName, null)).thenReturn(Mono.just(branchResponse));
+        when(gitHubWebClientService.commitFile(any(), any(), any())).thenReturn(Mono.just(new GithubUploadResponse()));
+
+        githubService.processBatch(branchName, fileContent, fileName).block();
+
+        verify(gitHubWebClientService, times(1)).commitFile(any(), any(), any());
     }
+
+    @Test
+    void processBatch_NonExistingBranch_CallsCreateBranchAndCommitFile() {
+        String branchName = "branch";
+        String fileContent = "content";
+        String fileName = "file.txt";
+
+        when(gitHubWebClientService.fetchBranchByName(branchName, null)).thenReturn(Mono.empty());
+        when(gitHubWebClientService.fetchDevelopmentSHA(null)).thenReturn(Mono.just(new GithubBranchResponse()));
+        when(gitHubWebClientService.createBranch(any(), any(), any())).thenReturn(Mono.just(new GithubBranchResponse()));
+        when(gitHubWebClientService.commitFile(any(), any(), any())).thenReturn(Mono.just(new GithubUploadResponse()));
+
+        githubService.processBatch(branchName, fileContent, fileName).block();
+
+        verify(gitHubWebClientService, times(1)).createBranch(any(), any(), any());
+        verify(gitHubWebClientService, times(1)).commitFile(any(), any(), any());
+    }
+
+    @Test
+    void processBatch_ErrorOccurs_ThrowsResponseStatusException() {
+        String branchName = "branch";
+        String fileContent = "content";
+        String fileName = "file.txt";
+
+        when(gitHubWebClientService.fetchBranchByName(branchName, null)).thenReturn(Mono.error(new RuntimeException("Error")));
+
+        try {
+            githubService.processBatch(branchName, fileContent, fileName).block();
+        } catch (ResponseStatusException ex) {
+            // Verify that a ResponseStatusException with BAD_REQUEST status is thrown
+            assertSame(HttpStatus.BAD_REQUEST, ex.getStatus());
+            assertEquals("Error", ex.getReason());
+        }
+    }
+
+    // Add more test cases for other methods...
+@Mock
+    private GithubAuthService githubAuthService;
+
+    @Mock
+    private GitHubWebClientService gitHubWebClientService;
+
+    @InjectMocks
+    private GithubService githubService;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+    }
+
+    @Test
+    void getSha_ValidAccessToken_ReturnsShaResponse() {
+        String accessToken = "access-token";
+
+        when(githubAuthService.retrieveAccessToken()).thenReturn(Mono.just(new AccessToken(accessToken)));
+        when(gitHubWebClientService.fetchDevelopmentSHA(accessToken)).thenReturn(Mono.just(new GithubBranchResponse()));
+
+        githubService.getSha().block();
+
+        verify(gitHubWebClientService, times(1)).fetchDevelopmentSHA(accessToken);
+    }
+
+    @Test
+    void createBranch_ValidArguments_ReturnsBranchResponse() {
+        String branchName = "branch";
+        String sha = "sha";
+        String accessToken = "access-token";
+
+        when(githubAuthService.retrieveAccessToken()).thenReturn(Mono.just(new AccessToken(accessToken)));
+        when(gitHubWebClientService.createBranch(any(), any(), eq(accessToken))).thenReturn(Mono.just(new GithubBranchResponse()));
+
+        githubService.createBranch(branchName, sha).block();
+
+        verify(gitHubWebClientService, times(1)).createBranch(any(), any(), eq(accessToken));
+    }
+
+    @Test
+    void commitFile_ValidArguments_ReturnsUploadResponse() {
+        GithubUploadRequest uploadRequest = new GithubUploadRequest();
+        String fileName = "file.txt";
+        String accessToken = "access-token";
+
+        when(githubAuthService.retrieveAccessToken()).thenReturn(Mono.just(new AccessToken(accessToken)));
+        when(gitHubWebClientService.commitFile(any(), eq(accessToken), eq(fileName))).thenReturn(Mono.just(new GithubUploadResponse()));
+
+        githubService.commitFile(uploadRequest, fileName).block();
+
+        verify(gitHubWebClientService, times(1)).commitFile(any(), eq(accessToken), eq(fileName));
+    }
+
+    @Test
+    void fetchBranchByName_ValidBranchName_ReturnsBranchResponse() {
+        String branchName = "branch";
+        String accessToken = "access-token";
+
+        when(githubAuthService.retrieveAccessToken()).thenReturn(Mono.just(new AccessToken(accessToken)));
+        when(gitHubWebClientService.fetchBranchByName(eq(branchName), eq(accessToken))).thenReturn(Mono.just(new GithubBranchResponse()));
+
+        githubService.fetchBranchByName(branchName).block();
+
+        verify(gitHubWebClientService, times(1)).fetchBranchByName(eq(branchName), eq(accessToken));
+    }
+
 }
-==========================================================================================================
-
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class CommitRequest {
-    private String message;
-    private Committer committer;
-    private String content;
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    private static class Committer {
-        private String name;
-        private String email;
-    }
-}
-
-======================================================================================================
-
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
-
-@RestController
-public class CommitController {
-    private final GitHubService gitHubService;
-
-    public CommitController(GitHubService gitHubService) {
-        this.gitHubService = gitHubService;
-    }
-
-    @PostMapping("/commit")
-    public void commitFile(@RequestBody CommitRequest request) {
-        gitHubService.commitFile("owner", "repo", "branch", "path/to/file.txt", request.getContent());
-    }
-}
-
-=================================================================================================================
-
-
-
-<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-
-    <modelVersion>4.0.0</modelVersion>
-
-    <groupId>com.example</groupId>
-    <artifactId>github-api-example</artifactId>
-    <version>1.0.0</version>
-
-    <properties>
-        <java.version>11</java.version>
-        <spring-boot.version>2.5.3</spring-boot.version>
-        <lombok.version>1.18.20</lombok.version>
-    </properties>
-
-    <dependencies>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-webflux</artifactId>
-            <version>${spring-boot.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
-            <version>${spring-boot.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.projectreactor</groupId>
-            <artifactId>reactor-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-                <version>${spring-boot.version}</version>
-            </plugin>
-        </plugins>
-    </build>
-
-</project>
-
-
