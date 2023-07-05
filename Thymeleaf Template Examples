@@ -83,15 +83,50 @@ class GithubServiceTest {
 }
 
 
+import okhttp3.mockwebserver.MockResponse;
+import okhttp3.mockwebserver.MockWebServer;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import java.io.IOException;
+
 class GitHubWebClientServiceTest {
 
     private GitHubWebClientService gitHubWebClientService;
+    private MockWebServer mockWebServer;
+
+    @BeforeEach
+    void setUp() throws IOException {
+        // Create a MockWebServer instance
+        mockWebServer = new MockWebServer();
+
+        // Start the server
+        mockWebServer.start();
+
+        // Get the server URL
+        String baseUrl = mockWebServer.url("/").toString();
+
+        // Create a WebClient.Builder instance with the server URL
+        WebClient.Builder webClientBuilder = WebClient.builder().baseUrl(baseUrl);
+
+        // Create a GitHubApiConfiguration instance
+        GitHubApiConfiguration gitHubApiConfiguration = new GitHubApiConfiguration(baseUrl);
+
+        // Create an instance of the service under test
+        gitHubWebClientService = new GitHubWebClientService(webClientBuilder, gitHubApiConfiguration);
+    }
+
+    @AfterEach
+    void tearDown() throws IOException {
+        // Shutdown the MockWebServer
+        mockWebServer.shutdown();
+    }
 
     @Test
     void fetchBranchByName_ShouldReturnBranchResponse() {
@@ -101,20 +136,19 @@ class GitHubWebClientServiceTest {
         String owner = "your-owner";
         String repo = "your-repo";
 
-        // Create a WebClient.Builder instance
-        WebClient.Builder webClientBuilder = WebClient.builder();
-
-        // Create a GitHubApiConfiguration instance
-        GitHubApiConfiguration gitHubApiConfiguration = new GitHubApiConfiguration("https://api.github.com");
-
-        // Create an instance of the service under test
-        gitHubWebClientService = new GitHubWebClientService(webClientBuilder, gitHubApiConfiguration);
+        // Set up the mock server response
+        String responseBody = "{\"name\": \"branch-name\"}";
+        mockWebServer.enqueue(new MockResponse()
+                .setResponseCode(200)
+                .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .setBody(responseBody));
 
         // Execute the method and verify the response using StepVerifier
         Mono<GithubBranchResponse> resultMono = gitHubWebClientService.fetchBranchByName(ref, accessToken, owner, repo);
         StepVerifier.create(resultMono)
-                .expectNextCount(1)
+                .expectNextMatches(response -> response.getName().equals(ref))
                 .verifyComplete();
     }
 }
+
 
