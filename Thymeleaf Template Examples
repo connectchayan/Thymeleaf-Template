@@ -151,4 +151,49 @@ class GitHubWebClientServiceTest {
     }
 }
 
+===================================================================================================================================
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.boot.test.context.SpringBootTest;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
+
+import static org.mockito.Mockito.*;
+
+@SpringBootTest
+class GitHubWebClientServiceTest {
+
+    private GitHubWebClientService gitHubWebClientService;
+
+    @Mock
+    private GitHubApiConfiguration gitHubApiConfiguration;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+        gitHubWebClientService = new GitHubWebClientService(gitHubApiConfiguration);
+    }
+
+    @Test
+    void retrieveAccessToken_ShouldReturnAccessToken() {
+        // Mock the required dependencies
+        String accessTokenUrl = "https://example.com/access-token";
+        when(gitHubApiConfiguration.getAccessTokenUrl()).thenReturn(accessTokenUrl);
+
+        // Define the expected access token response
+        AccessToken expectedAccessToken = new AccessToken("test-token");
+
+        // Execute the method and verify the response using StepVerifier
+        Mono<AccessToken> resultMono = gitHubWebClientService.retrieveAccessToken();
+        StepVerifier.create(resultMono)
+                .expectNext(expectedAccessToken)
+                .verifyComplete();
+
+        // Verify that the expected API configuration method was called
+        verify(gitHubApiConfiguration, times(1)).getAccessTokenUrl();
+    }
+}
 
