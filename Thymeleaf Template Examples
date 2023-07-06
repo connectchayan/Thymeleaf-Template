@@ -273,4 +273,70 @@ class GitHubWebClientServiceTest {
 
     // Add more test cases for other methods in GitHubWebClientService
 }
+====================================================================================================================================
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpHeaders;
+import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
+
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class GitHubWebClientServiceTest {
+
+    @Mock
+    private WebClient.Builder webClientBuilder;
+
+    @Mock
+    private GitHubApiConfiguration gitHubApiConfiguration;
+
+    @Mock
+    private WebClient.RequestHeadersUriSpec<?> requestHeadersUriSpec;
+
+    @Mock
+    private WebClient.RequestHeadersSpec<?> requestHeadersSpec;
+
+    @Mock
+    private WebClient.ResponseSpec responseSpec;
+
+    @Test
+    void fetchBranchByName_ShouldReturnBranchResponse() {
+        // Mock the required dependencies
+        String ref = "test-ref";
+        String owner = "test-owner";
+        String repo = "test-repo";
+        String token = "test-token";
+
+        GitHubWebClientService gitHubWebClientService = new GitHubWebClientService(webClientBuilder, gitHubApiConfiguration);
+        
+        // Mock the behavior of the dependencies
+        when(gitHubApiConfiguration.getBaseUrl()).thenReturn("http://example.com");
+        when(webClientBuilder.baseUrl("http://example.com")).thenReturn(webClientBuilder);
+        when(webClientBuilder.defaultHeader(HttpHeaders.ACCEPT, "application/vnd.github.v3+json")).thenReturn(webClientBuilder);
+        when(webClientBuilder.build()).thenReturn(WebTestClient.bindToController(gitHubWebClientService).build().mutate().baseUrl("http://example.com").build());
+        when(webClientBuilder.defaultHeader("Authorization", "Bearer " + token)).thenReturn(webClientBuilder);
+        when(webClientBuilder.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri("/repos/{owner}/{repo}/branches/{ref}", owner, repo, ref)).thenReturn(requestHeadersSpec);
+        when(requestHeadersSpec.header(HttpHeaders.ACCEPT, "application/vnd.github.v3+json")).thenReturn(requestHeadersSpec);
+        when(requestHeadersSpec.header("Authorization", "Bearer " + token)).thenReturn(requestHeadersSpec);
+        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(GithubBranchResponse.class)).thenReturn(Mono.just(new GithubBranchResponse()));
+
+        // Execute the method under test
+        Mono<GithubBranchResponse> result = gitHubWebClientService.fetchBranchByName(ref, new AccessToken(token));
+
+        // Verify the result using StepVerifier
+        StepVerifier.create(result)
+                .expectNextCount(1)
+                .verifyComplete();
+    }
+
+    // Add more test cases for other methods in GitHubWebClientService
+}
 
