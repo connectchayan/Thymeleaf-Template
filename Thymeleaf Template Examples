@@ -336,6 +336,59 @@ class GitHubWebClientServiceTest {
                 .expectNextCount(1)
                 .verifyComplete();
     }
+===========================================================================================================================================================================
+
+
+import org.junit.jupiter.api.Test;
+
+import java.time.LocalDateTime;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+class DateUtilTest {
+
+    @Test
+    void convertLongToLocalDateTime() {
+        long timeInMillis = 1626156000000L; // Example timestamp for 2021-07-13 12:00:00 UTC
+        LocalDateTime expectedDateTime = LocalDateTime.of(2021, 7, 13, 12, 0, 0);
+
+        LocalDateTime resultDateTime = DateUtil.convertLongToLocalDateTime(timeInMillis);
+
+        assertEquals(expectedDateTime, resultDateTime);
+    }
+
+    @Test
+    void convertLocalDateTimeToLong() {
+        LocalDateTime dateTime = LocalDateTime.of(2021, 7, 13, 12, 0, 0);
+        long expectedTimeInMillis = 1626156000000L; // Example timestamp for 2021-07-13 12:00:00 UTC
+
+        long resultTimeInMillis = DateUtil.convertLocalDateTimeToLong(dateTime);
+
+        assertEquals(expectedTimeInMillis, resultTimeInMillis);
+    }
+
+    @Test
+    void convertStringToLocalDateTime() {
+        String date = "2021-07-13";
+        String format = "yyyy-MM-dd";
+        LocalDateTime expectedDateTime = LocalDateTime.of(2021, 7, 13, 0, 0, 0);
+
+        LocalDateTime resultDateTime = DateUtil.convertStringToLocalDateTime(date, format);
+
+        assertEquals(expectedDateTime, resultDateTime);
+    }
+
+    @Test
+    void convertStringToLong() {
+        String date = "2021-07-13 12:00:00";
+        String format = "yyyy-MM-dd HH:mm:ss";
+        long expectedTimeInMillis = 1626156000000L; // Example timestamp for 2021-07-13 12:00:00 UTC
+
+        long resultTimeInMillis = DateUtil.convertStringToLong(date, format);
+
+        assertEquals(expectedTimeInMillis, resultTimeInMillis);
+    }
+}
 
     // Add more test cases for other methods in GitHubWebClientService
 }
