@@ -414,3 +414,51 @@ function applySelected() {
             }
         }
     }
+
+
+function applySelected() {
+    // Get the reference to the table
+    var table = document.getElementById("myTable");
+
+    // Iterate through each row in the table
+    for (var i = 0; i < table.rows.length; i++) {
+        // Check if the checkbox in the current row is selected
+        var checkbox = null;
+        var currentRow = table.rows[i];
+
+        // Ensure the current row exists
+        if (currentRow) {
+            // Find the checkbox by iterating over the child elements
+            for (var j = 0; j < currentRow.cells[0].children.length; j++) {
+                var childElement = currentRow.cells[0].children[j];
+                if (childElement.tagName === "INPUT" && childElement.type === "checkbox" && childElement.id.startsWith("checkbox")) {
+                    checkbox = childElement;
+                    break;
+                }
+            }
+        }
+
+        // If the checkbox is checked, proceed with cloning
+        if (checkbox && checkbox.checked) {
+            console.log("Selected row index:", i);
+
+            // Clone the selected row
+            var newRow = currentRow.cloneNode(true);
+            console.log("Cloning row:", newRow);
+
+            // Clear the checkbox in the cloned row
+            var clonedCheckbox = newRow.cells[0].querySelector("input[type='checkbox']");
+            if (clonedCheckbox) {
+                clonedCheckbox.checked = false;
+                console.log("Clearing checkbox in cloned row:", newRow);
+            } else {
+                console.error("Checkbox not found in cloned row:", newRow);
+            }
+
+            // Append the cloned row to the table
+            table.appendChild(newRow);
+            console.log("Appending cloned row to the table:", newRow);
+        }
+    }
+}
+
