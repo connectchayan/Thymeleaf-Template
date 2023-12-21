@@ -393,3 +393,24 @@ class DateUtilTest {
     // Add more test cases for other methods in GitHubWebClientService
 }
 
+function applySelected() {
+        // Get the reference to the table
+        var table = document.getElementById("myTable");
+
+        // Iterate through each row in the table
+        for (var i = 0; i < table.rows.length; i++) {
+            // Check if the checkbox in the current row is selected
+            var checkbox = table.rows[i].cells[0].getElementsByTagName("input")[0];
+            
+            if (checkbox.checked) {
+                // Clone the selected row
+                var newRow = table.rows[i].cloneNode(true);
+
+                // Clear the checkbox in the cloned row
+                newRow.cells[0].getElementsByTagName("input")[0].checked = false;
+
+                // Append the cloned row to the table
+                table.appendChild(newRow);
+            }
+        }
+    }
