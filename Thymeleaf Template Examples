@@ -462,3 +462,28 @@ function applySelected() {
     }
 }
 
+function applySelected() {
+    // Iterate through checkboxes in the table
+    for (var i = 1; i <= numRows; i++) {
+        var checkboxId = 'checkbox' + i; // Assuming IDs are checkbox1, checkbox2, etc.
+        var checkbox = document.getElementById(checkboxId);
+
+        // Check if the checkbox is selected
+        if (checkbox.checked) {
+            // Get the corresponding row
+            var selectedRow = checkbox.closest('tr');
+
+            // Get values from the existing input fields outside the table
+            var existingCoveragePCValue = document.getElementById('existingCoveragePC').value;
+            var existingOverAllCovPCValue = document.getElementById('existingOverAllCovPC').value;
+
+            // Update the target input fields in the new row
+            document.getElementById('coveragePC').value = existingCoveragePCValue;
+            document.getElementById('overAllCovPC').value = existingOverAllCovPCValue;
+
+            // You can add more fields as needed
+        }
+    }
+}
+
+
