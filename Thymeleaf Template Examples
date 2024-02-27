@@ -542,3 +542,19 @@ public class WebAutomationScript {
     }
 }
 
+function getElementsByClassPrefix(prefix) {
+    var allElements = document.getElementsByTagName('*');
+    var elements = [];
+
+    for (var i = 0; i < allElements.length; i++) {
+        var classes = allElements[i].className.split(' ');
+        for (var j = 0; j < classes.length; j++) {
+            if (classes[j].indexOf(prefix) === 0) {
+                elements.push(allElements[i]);
+                break;
+            }
+        }
+    }
+
+    return elements;
+}
