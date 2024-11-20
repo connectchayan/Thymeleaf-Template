@@ -558,3 +558,33 @@ function getElementsByClassPrefix(prefix) {
 
     return elements;
 }
+
+public static String generateTable(List<Employee> employees) {
+        StringBuilder html = new StringBuilder();
+
+        html.append("<table border='1' style='border-collapse: collapse; width: 100%;'>");
+        html.append("<thead style='background-color: lightgrey;'>") // Set header background color
+            .append("<tr>")
+            .append("<th>ID</th>")
+            .append("<th>Name</th>")
+            .append("<th>Department</th>")
+            .append("<th>Salary</th>")
+            .append("</tr>")
+            .append("</thead>");
+        html.append("<tbody>"); // Add tbody for better structure
+
+        for (Employee employee : employees) {
+            html.append("<tr>")
+                .append("<td>").append(employee.getId()).append("</td>")
+                .append("<td>").append(employee.getName()).append("</td>")
+                .append("<td>").append(employee.getDepartment()).append("</td>")
+                .append("<td>").append(employee.getSalary()).append("</td>")
+                .append("</tr>");
+        }
+
+        html.append("</tbody>");
+        html.append("</table>");
+
+        return html.toString();
+    }
+
