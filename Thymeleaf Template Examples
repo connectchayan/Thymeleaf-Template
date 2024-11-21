@@ -588,3 +588,21 @@ public static String generateTable(List<Employee> employees) {
         return html.toString();
     }
 
+SELECT 
+    obh.transaction_id AS transactionId, 
+    obh.obligation_nbr AS obligationNumber, 
+    obh.product_type_code AS productTypeCode, 
+    obh.gtfp_status_id AS status, 
+    appev.gtfp_approval_event_id AS approvalEventId, 
+    appev.creation_date AS approvalEventDate, 
+    appev.approval_status_ind AS approvalStatusInd 
+FROM 
+    GTFP.OBLIGATION_HEADER obh 
+JOIN 
+    GTFP.GTFP_APPROVAL_EVENT appev 
+ON 
+    obh.transaction_id = appev.ref_key_id 
+WHERE 
+    obh.gtfp_status_id = 107 
+ORDER BY 
+    obh.transaction_id DESC;
