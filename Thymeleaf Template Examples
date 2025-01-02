@@ -606,3 +606,55 @@ WHERE
     obh.gtfp_status_id = 107 
 ORDER BY 
     obh.transaction_id DESC;
+=============================================================
+
+String url = "https://jsonplaceholder.typicode.com/posts"; // Example URL
+        String requestMethod = "GET"; // Use "POST", "PUT", or "DELETE" as needed
+
+        try {
+            // Create URL object
+            URL apiUrl = new URL(url);
+            HttpURLConnection connection = (HttpURLConnection) apiUrl.openConnection();
+
+            // Set request method
+            connection.setRequestMethod(requestMethod);
+
+            // Set request headers if needed
+            connection.setRequestProperty("Accept", "application/json");
+            connection.setRequestProperty("Content-Type", "application/json");
+
+            // If making a POST or PUT request, send data in the body
+            if ("POST".equalsIgnoreCase(requestMethod) || "PUT".equalsIgnoreCase(requestMethod)) {
+                connection.setDoOutput(true);
+                String jsonInput = "{ \"title\": \"foo\", \"body\": \"bar\", \"userId\": 1 }";
+                try (OutputStream os = connection.getOutputStream()) {
+                    os.write(jsonInput.getBytes());
+                    os.flush();
+                }
+            }
+
+            // Get response code
+            int responseCode = connection.getResponseCode();
+            System.out.println("Response Code: " + responseCode);
+
+            // Read the response
+            if (responseCode == HttpURLConnection.HTTP_OK || responseCode == HttpURLConnection.HTTP_CREATED) {
+                try (BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
+                    String inputLine;
+                    StringBuilder response = new StringBuilder();
+
+                    while ((inputLine = in.readLine()) != null) {
+                        response.append(inputLine);
+                    }
+                    System.out.println("Response: " + response.toString());
+                }
+            } else {
+                System.out.println("Error occurred: " + responseCode);
+            }
+
+            // Disconnect connection
+            connection.disconnect();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
