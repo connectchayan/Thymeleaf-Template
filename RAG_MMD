@@ -1,0 +1,79 @@
+flowchart TD
+    subgraph "Public Internet"
+        Client[Client Application]
+    end
+
+    subgraph "Azure"
+        direction TB
+        
+        %% Security Layer
+        subgraph "Security & Entry"
+            AGW["Azure Application Gateway (with WAF)"]
+            AzureAPIM["Azure API Management"]
+        end
+
+        %% Observability
+        subgraph "Observability"
+            direction LR
+            AzureMonitor["Azure Monitor & Application Insights"]
+        end
+
+        %% Orchestration Layer
+        subgraph "Agentic Orchestration"
+            N8N["N8N (Agentic Workflow - Webhook/API)"]
+            AgentService["Agent Service (Orchestration & Context Manager)"]
+        end
+
+        %% Core Microservices
+        subgraph "Microservices Layer"
+            RetrievalService["Retrieval Service"]
+            LLMService["LLM Service"]
+            MemoryService["Memory Service (Redis / CosmosDB)"]
+        end
+
+        %% AI Services
+        subgraph "AI Services"
+            ChromaDB[(ChromaDB Cluster)]
+            LLMCluster[(LLM VM Cluster)]
+        end
+
+        %% Data Ingestion
+        subgraph "Data & Ingestion Pipeline"
+            EventHub["Azure Event Hub / Service Bus"]
+            FunctionApp["Azure Functions / Container Apps (Embedding Generator)"]
+            BlobStorage[(Azure Blob Storage)]
+        end
+
+        %% Telemetry
+        AGW -.-> AzureMonitor
+        AzureAPIM -.-> AzureMonitor
+        N8N -.-> AzureMonitor
+        AgentService -.-> AzureMonitor
+        RetrievalService -.-> AzureMonitor
+        LLMService -.-> AzureMonitor
+        MemoryService -.-> AzureMonitor
+        ChromaDB -.-> AzureMonitor
+        LLMCluster -.-> AzureMonitor
+        FunctionApp -.-> AzureMonitor
+        BlobStorage -.-> AzureMonitor
+        EventHub -.-> AzureMonitor
+    end
+
+    %% Client Flow
+    Client -->|1.POST Request| AGW
+    AGW --> |2.POST Request| AzureAPIM
+    AzureAPIM -->|3.Call| AgentService
+
+    %% Orchestration Flow
+    AgentService -->|4a. Workflow Trigger| N8N
+    AgentService -->|4b. Query| RetrievalService -->|5a. Lookup| ChromaDB
+    AgentService -->|4c. Context| MemoryService
+    AgentService -->|4d. Generation| LLMService -->|5b. Generate| LLMCluster
+
+    %% Response
+    AgentService -->|6.Response| AzureAPIM -->|7.Return| AGW -->|8.Final Response| Client
+
+    %% Ingestion Flow
+    EventHub -->|Stream Data| FunctionApp
+    FunctionApp -->|Write Raw Data| BlobStorage
+    FunctionApp -->|Generate Embeddings| ChromaDB
