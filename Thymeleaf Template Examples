@@ -658,3 +658,60 @@ String url = "https://jsonplaceholder.typicode.com/posts"; // Example URL
             e.printStackTrace();
         }
     }
+
+
+flowchart TD
+    subgraph "Public Internet"
+        Client[Client Application]
+    end
+
+    subgraph "Azure"
+        direction TB
+        subgraph "Security & Entry"
+            AGW["Azure Application Gateway (with WAF)"]
+        end
+
+        subgraph "Observability"
+            direction LR
+            AzureMonitor["Azure Monitor & Application Insights"]
+        end
+
+        subgraph "Application Hosting"
+            AzureAPIM["Azure API Management"]
+            AzureLB["Azure Load Balancer"]
+            VMSS["Virtual Machine Scale Set"]
+        end
+
+        subgraph "AI Services"
+            ChromaDB[(ChromaDB Cluster)]
+            LLM[(LLM VM Cluster)]
+        end
+
+        subgraph "Data & Ingestion"
+            IngestionVM["Ingestion VM"]
+            BlobStorage[(Azure Blob Storage)]
+        end
+
+        AGW -.->|Telemetry| AzureMonitor
+        AzureAPIM -.->|Telemetry| AzureMonitor
+        AzureLB -.->|Telemetry| AzureMonitor
+        VMSS -.->|Telemetry| AzureMonitor
+        ChromaDB -.->|Telemetry| AzureMonitor
+        LLM -.->|Telemetry| AzureMonitor
+        IngestionVM -.->|Telemetry| AzureMonitor
+        BlobStorage -.->|Telemetry| AzureMonitor
+    end
+
+    Client -->|1.POST request| AGW;
+    AGW -->|2.Route request & WAF| AzureAPIM;
+    AzureAPIM -->|3.Route & Policy| AzureLB;
+    AzureLB -->|4.Distribute request| VMSS;
+    VMSS -->|5a.Retrieval| ChromaDB;
+    VMSS -->|5b.Generation| LLM;
+    VMSS -->|6.Send response| AzureLB;
+    AzureLB -->|7.Return response| AzureAPIM;
+    AzureAPIM -->|8.Return response| AGW;
+    AGW -->|9.Final response| Client;
+    IngestionVM -->|Read files| BlobStorage;
+    IngestionVM -->|Write embeddings| ChromaDB;
+
