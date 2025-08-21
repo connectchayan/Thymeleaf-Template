@@ -1,79 +1,122 @@
+%%{init: {"theme": "base", "themeVariables": { "background":"#ffffff"}}}%%
 flowchart TD
-    subgraph "Public Internet"
-        Client[Client Application]
-    end
+    %% Actors
+    KE["Knowledge Engineers<br>/<br>Data Stewards"]
+    BU["Business User"]
 
-    subgraph "Azure"
-        direction TB
-        
+    %% Azure Cloud Wrapper
+    subgraph Azure [Azure Cloud]
+        style Azure fill:#f8fbff,stroke:#301c6b,stroke-width:1px,rx:2,ry:2
+
         %% Security Layer
-        subgraph "Security & Entry"
-            AGW["Azure Application Gateway (with WAF)"]
-            AzureAPIM["Azure API Management"]
+        subgraph Security [Security Layer]
+        style Security fill:#f8fbff,stroke:#301c6b,stroke-width:1px,rx:2,ry:2
+            direction TB
+            AGW["**App Gateway with WAF**"]
+            APIM["**Azure API Management**"]
+            
         end
 
         %% Observability
-        subgraph "Observability"
+        subgraph Observability [Observability]
+        style Observability fill:#f8fbff,stroke:#301c6b,stroke-width:1px,rx:2,ry:2
             direction LR
-            AzureMonitor["Azure Monitor & Application Insights"]
+            MON["__Azure Monitor & App Insights__"]
+        end
+        
+        %% Upload service
+        subgraph UploadService [Upload Service]
+        style UploadService fill:#f8fbff,stroke:#301c6b,stroke-width:1px,rx:2,ry:2
+            direction TB
+            FileUploadMS["**File Upload MS**"]
         end
 
-        %% Orchestration Layer
-        subgraph "Agentic Orchestration"
-            N8N["N8N (Agentic Workflow - Webhook/API)"]
-            AgentService["Agent Service (Orchestration & Context Manager)"]
+        %% Ingestion Services
+        subgraph IngestionPipeline [Ingestion Pipeline]
+        style IngestionPipeline fill:#f8fbff,stroke:#301c6b,stroke-width:1px,rx:2,ry:2
+            direction TB
+            IngestionMS["**Azure Cloud Function** <br>Ingestion<br>Chunking"]
+            EmbeddingMS["**Azure Cloud Function** <br>Embedding<br>Vectorize Data"]
+            Trigger["**Azure Cloud Function** <br> Azure Event Grid Trigger"]
         end
 
-        %% Core Microservices
-        subgraph "Microservices Layer"
-            RetrievalService["Retrieval Service"]
-            LLMService["LLM Service"]
-            MemoryService["Memory Service (Redis / CosmosDB)"]
+        %% Runtime Services
+        subgraph RAGRuntime [RAG Runtime Services]
+        style RAGRuntime fill:#f8fbff,stroke:#301c6b,stroke-width:1px,rx:2,ry:2
+            direction TB
+            OrchestratorMS["**Orchestrator MS**"]
+            RetrieverMS["**Retriever MS**"]
+            AugmenterMS["**Augmenter MS**"]
+            LLMMS["**LLM Proxy MS**"]
         end
 
-        %% AI Services
-        subgraph "AI Services"
-            ChromaDB[(ChromaDB Cluster)]
-            LLMCluster[(LLM VM Cluster)]
+        %% Data Stores
+        subgraph DataStores [Data Stores]
+        style DataStores fill:#f8fbff,stroke:#301c6b,stroke-width:1px,rx:2,ry:2
+            direction TB
+            Blob["**Azure Blob Storage**"]
+            Search["**Vector DB<br>(CosmosDB)**"]
+            Meta["**Metadata Store<br>(MongoDB)**"]
+            Cache["**Redis Cache**"]
         end
-
-        %% Data Ingestion
-        subgraph "Data & Ingestion Pipeline"
-            EventHub["Azure Event Hub / Service Bus"]
-            FunctionApp["Azure Functions / Container Apps (Embedding Generator)"]
-            BlobStorage[(Azure Blob Storage)]
-        end
-
-        %% Telemetry
-        AGW -.-> AzureMonitor
-        AzureAPIM -.-> AzureMonitor
-        N8N -.-> AzureMonitor
-        AgentService -.-> AzureMonitor
-        RetrievalService -.-> AzureMonitor
-        LLMService -.-> AzureMonitor
-        MemoryService -.-> AzureMonitor
-        ChromaDB -.-> AzureMonitor
-        LLMCluster -.-> AzureMonitor
-        FunctionApp -.-> AzureMonitor
-        BlobStorage -.-> AzureMonitor
-        EventHub -.-> AzureMonitor
     end
 
-    %% Client Flow
-    Client -->|1.POST Request| AGW
-    AGW --> |2.POST Request| AzureAPIM
-    AzureAPIM -->|3.Call| AgentService
+    %% Telemetry Connections
+    AGW -.-> MON
+    APIM -.-> MON
+    FileUploadMS -.-> MON
+    IngestionMS -.-> MON
+    EmbeddingMS -.-> MON
+    OrchestratorMS -.-> MON
+    RetrieverMS -.-> MON
+    AugmenterMS -.-> MON
+    LLMMS -.-> MON
+    Blob -.-> MON
+    Search -.-> MON
+    Meta -.-> MON
+    Cache -.-> MON
 
-    %% Orchestration Flow
-    AgentService -->|4a. Workflow Trigger| N8N
-    AgentService -->|4b. Query| RetrievalService -->|5a. Lookup| ChromaDB
-    AgentService -->|4c. Context| MemoryService
-    AgentService -->|4d. Generation| LLMService -->|5b. Generate| LLMCluster
+    %% Ingestion Flow (Blue)
+    KE -->|1. Upload Document| AGW
+    AGW -->|2. Secure Gateway| APIM
+    APIM -->|3. Upload API| FileUploadMS
+    FileUploadMS -->|4. Store Raw File| Blob
+    Blob -->|5. Blob Upload Event| Trigger
+    Trigger -->|6. Start Ingestion| IngestionMS
+    IngestionMS -->|7. Chunk & Send| EmbeddingMS
+    EmbeddingMS -->|8. Store Embeddings| Search
+    IngestionMS -->|9. Store Metadata| Meta
 
-    %% Response
-    AgentService -->|6.Response| AzureAPIM -->|7.Return| AGW -->|8.Final Response| Client
+    %% Query Flow (Green)
+    BU -->|1. Ask Question| AGW
+    AGW -->|2. Secure Gateway| APIM
+    APIM -->|3. Query API| OrchestratorMS
+    OrchestratorMS -->|4. Check Session| Cache
+    OrchestratorMS -->|5. Call Retriever| RetrieverMS
+    RetrieverMS -->|6. Hybrid Search| Search
+    Search -->|7. Return Relevant Chunks| RetrieverMS
+    RetrieverMS -->|8. Pass Context to| AugmenterMS
+    AugmenterMS -->|9. Build Final Prompt| LLMMS
+    LLMMS -->|10. Generate Answer| OrchestratorMS
+    OrchestratorMS -->|11. Return Answer| BU
 
-    %% Ingestion Flow
-    EventHub -->|Stream Data| FunctionApp
-    FunctionApp -->|Write Raw Data| BlobStorage
-    FunctionApp -->|Generate Embeddings| ChromaDB
+    %% Classes
+    class KE,BU actor
+    class AGW,APIM gateway
+    class MON observability
+    class FileUploadMS,IngestionMS,EmbeddingMS,OrchestratorMS,RetrieverMS,AugmenterMS,LLMMS microservice
+    class Blob,Search,Meta,Cache datastore
+    class Trigger trigger
+
+    %% Styles
+    classDef actor fill:#fdfdfd,stroke:#333,stroke-width:2px,rx:10,ry:10,font-weight:bold
+    classDef gateway fill:#e8f0fe,stroke:#1a56db,stroke-width:2px,rx:6,ry:6
+    classDef observability fill:#fef6e4,stroke:#d17f00,stroke-width:2px,rx:6,ry:6,font-style:italic
+    classDef microservice fill:#f5faff,stroke:#1145a8,stroke-width:1.5px,rx:10,ry:10
+    classDef datastore fill:#fffaf0,stroke:#5a2d0c,stroke-width:1px,rx:6,ry:6
+    classDef trigger fill:#fffae0,stroke:#d17f00,stroke-width:2px,rx:6,ry:6
+
+    %% Link Styles
+    linkStyle default stroke-width:1px
+    linkStyle 4,5,6,7,8,9,10,11 stroke:#1f77b4,stroke-width:2px %% Ingestion flow
+    linkStyle 12,13,14,15,16,17,18,19,20,21,22 stroke:#2ca02c,stroke-width:2px %% Query flow
