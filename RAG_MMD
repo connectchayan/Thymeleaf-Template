@@ -62,7 +62,7 @@ flowchart TD
         end
 
         %% LLM
-        subgraph LLMService [External LLM Service]
+        subgraph LLMService [Large Language Model]
         style LLMService fill:#fff5f5,stroke:#d13438,stroke-width:2px,rx:6,ry:6
             GPT["**GPT OSS 20B (LLM)**"]
         end
