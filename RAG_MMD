@@ -1,5 +1,6 @@
 %%{init: {"theme": "base", "themeVariables": { "background":"#ffffff"}}}%%
 flowchart TD
+
     %% Actors
     KE["Knowledge Engineers<br>/<br>Data Stewards"]
     BU["Business User"]
@@ -14,7 +15,6 @@ flowchart TD
             direction TB
             AGW["**App Gateway with WAF**"]
             APIM["**Azure API Management**"]
-            
         end
 
         %% Observability
@@ -35,9 +35,9 @@ flowchart TD
         subgraph IngestionPipeline [Ingestion Pipeline]
         style IngestionPipeline fill:#f8fbff,stroke:#301c6b,stroke-width:1px,rx:2,ry:2
             direction TB
-            IngestionMS["**Azure Cloud Function** <br>Ingestion<br>Chunking"]
-            EmbeddingMS["**Azure Cloud Function** <br>Embedding<br>Vectorize Data"]
-            Trigger["**Azure Cloud Function** <br> Azure Event Grid Trigger"]
+            Trigger["**Azure Cloud Function** <br> Event Grid Trigger"]
+            IngestionMS["**Ingestion MS** <br> Chunking & Cleaning"]
+            EmbeddingMS["**Embedding MS** <br> Vectorize Data"]
         end
 
         %% Runtime Services
@@ -46,6 +46,7 @@ flowchart TD
             direction TB
             OrchestratorMS["**Orchestrator MS**"]
             RetrieverMS["**Retriever MS**"]
+            QueryEmbeddingMS["**Query Embedding MS** <br> Vectorize Query"]
             AugmenterMS["**Augmenter MS**"]
             LLMMS["**LLM Proxy MS**"]
         end
@@ -59,22 +60,31 @@ flowchart TD
             Meta["**Metadata Store<br>(MongoDB)**"]
             Cache["**Redis Cache**"]
         end
+
+        %% LLM
+        subgraph LLMService [External LLM Service]
+        style LLMService fill:#fff5f5,stroke:#d13438,stroke-width:2px,rx:6,ry:6
+            GPT["**GPT OSS 20B (LLM)**"]
+        end
     end
 
     %% Telemetry Connections
     AGW -.-> MON
     APIM -.-> MON
     FileUploadMS -.-> MON
+    Trigger -.-> MON
     IngestionMS -.-> MON
     EmbeddingMS -.-> MON
     OrchestratorMS -.-> MON
     RetrieverMS -.-> MON
+    QueryEmbeddingMS -.-> MON
     AugmenterMS -.-> MON
     LLMMS -.-> MON
     Blob -.-> MON
     Search -.-> MON
     Meta -.-> MON
     Cache -.-> MON
+    GPT -.-> MON
 
     %% Ingestion Flow (Blue)
     KE -->|1. Upload Document| AGW
@@ -82,10 +92,11 @@ flowchart TD
     APIM -->|3. Upload API| FileUploadMS
     FileUploadMS -->|4. Store Raw File| Blob
     Blob -->|5. Blob Upload Event| Trigger
-    Trigger -->|6. Start Ingestion| IngestionMS
-    IngestionMS -->|7. Chunk & Send| EmbeddingMS
-    EmbeddingMS -->|8. Store Embeddings| Search
-    IngestionMS -->|9. Store Metadata| Meta
+    Trigger -->|6. Start Indexing| OrchestratorMS
+    OrchestratorMS -->|7. Load & Send| IngestionMS
+    IngestionMS -->|8. Split/Chunk| EmbeddingMS
+    EmbeddingMS -->|9. Store Embeddings| Search
+    OrchestratorMS -->|10. Store Metadata| Meta
 
     %% Query Flow (Green)
     BU -->|1. Ask Question| AGW
@@ -93,20 +104,25 @@ flowchart TD
     APIM -->|3. Query API| OrchestratorMS
     OrchestratorMS -->|4. Check Session| Cache
     OrchestratorMS -->|5. Call Retriever| RetrieverMS
-    RetrieverMS -->|6. Hybrid Search| Search
-    Search -->|7. Return Relevant Chunks| RetrieverMS
-    RetrieverMS -->|8. Pass Context to| AugmenterMS
-    AugmenterMS -->|9. Build Final Prompt| LLMMS
-    LLMMS -->|10. Generate Answer| OrchestratorMS
-    OrchestratorMS -->|11. Return Answer| BU
+    RetrieverMS -->|6. Generate Query Embedding| QueryEmbeddingMS
+    QueryEmbeddingMS -->|7. Return Vector| RetrieverMS
+    RetrieverMS -->|8. Hybrid Search| Search
+    Search -->|9. Return Relevant Chunks| RetrieverMS
+    RetrieverMS -->|10. Pass Context to| AugmenterMS
+    AugmenterMS -->|11. Build Final Prompt| LLMMS
+    LLMMS -->|12. Query LLM| GPT
+    GPT -->|13. Generate Answer| LLMMS
+    LLMMS -->|14. Return Answer| OrchestratorMS
+    OrchestratorMS -->|15. Return Answer| BU
 
     %% Classes
     class KE,BU actor
     class AGW,APIM gateway
     class MON observability
-    class FileUploadMS,IngestionMS,EmbeddingMS,OrchestratorMS,RetrieverMS,AugmenterMS,LLMMS microservice
+    class FileUploadMS,IngestionMS,EmbeddingMS,OrchestratorMS,RetrieverMS,QueryEmbeddingMS,AugmenterMS,LLMMS microservice
     class Blob,Search,Meta,Cache datastore
     class Trigger trigger
+    class GPT llm
 
     %% Styles
     classDef actor fill:#fdfdfd,stroke:#333,stroke-width:2px,rx:10,ry:10,font-weight:bold
@@ -115,8 +131,9 @@ flowchart TD
     classDef microservice fill:#f5faff,stroke:#1145a8,stroke-width:1.5px,rx:10,ry:10
     classDef datastore fill:#fffaf0,stroke:#5a2d0c,stroke-width:1px,rx:6,ry:6
     classDef trigger fill:#fffae0,stroke:#d17f00,stroke-width:2px,rx:6,ry:6
+    classDef llm fill:#fff5f5,stroke:#d13438,stroke-width:2px,rx:8,ry:8,font-weight:bold
 
     %% Link Styles
     linkStyle default stroke-width:1px
-    linkStyle 4,5,6,7,8,9,10,11 stroke:#1f77b4,stroke-width:2px %% Ingestion flow
-    linkStyle 12,13,14,15,16,17,18,19,20,21,22 stroke:#2ca02c,stroke-width:2px %% Query flow
+    linkStyle 4,5,6,7,8,9,10 stroke:#1f77b4,stroke-width:2px %% Ingestion flow
+    linkStyle 12,13,14,15,16,17,18,19,20,21,22,23,24,25 stroke:#2ca02c,stroke-width:2px %% Query flow
