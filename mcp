@@ -1,0 +1,85 @@
+1. What is MCP?
+
+A standardized protocol for enabling AI models to access tools, data, and context.
+
+Defines a consistent way for models, servers, and clients to communicate.
+
+Goal: improve interoperability, safety, and reliability of model-driven systems.
+
+2. Core Principles
+
+Standardization: One protocol, many tools.
+
+Extensibility: Support for custom tools and resources.
+
+Security: Clear boundaries for access control.
+
+Composability: Multiple MCP servers can be combined.
+
+3. Architecture Overview
+
+MCP Server: Hosts tools, data, and actions.
+
+MCP Client: The runtime environment where the model executes (e.g., LangChain, LangGraph, IDE plugin).
+
+Protocol Layer: JSON-RPC over streams (WebSocket, stdio).
+
+Model: AI system that requests actions or context.
+
+4. Key Components
+
+Tools
+
+Exposed functions/models that the LLM can call.
+
+Examples: search APIs, database queries, file operations.
+
+Resources
+
+Structured data that can be queried (documents, vectors, configs).
+
+Events
+
+Server → Client updates (e.g., “file changed”).
+
+Sessions
+
+Context-aware conversations with access to a specific set of tools/resources.
+
+5. Workflow (Step by Step)
+
+Model requests a tool/resource via MCP Client.
+
+Client forwards request using MCP.
+
+MCP Server executes the requested tool/resource.
+
+Response sent back to client → interpreted by the model.
+
+Model continues reasoning with updated context.
+
+6. Security Considerations
+
+Limit tool/resource exposure (principle of least privilege).
+
+Apply authentication & authorization at the MCP Server.
+
+Audit logs for tool calls and resource access.
+
+7. Example Use Cases
+
+AI Agents accessing enterprise databases securely.
+
+IDE copilots retrieving project files via MCP server.
+
+Multi-agent systems coordinating with shared tools.
+
+Plug-and-play integrations (search engines, APIs, cloud services).
+
+8. Tools & Ecosystem (Typical Setup)
+Layer	Tools/Technologies Commonly Used
+Protocol Transport	JSON-RPC, WebSocket, stdio
+Client Runtime	LangGraph, LangChain, IDE plugins
+Servers	Custom MCP servers, API wrappers
+Observability	Logging, tracing, monitoring
+Security	OAuth, API keys, IAM policies
