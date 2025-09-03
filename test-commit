@@ -1,0 +1,72 @@
+Got it ✅ — let’s approach this as a **seasoned GenAI solution architect**.
+You’re essentially standing up ServiceNow **Financial Services Operations (FSO)** as the **System of Engagement (SoE)**, with ServiceNow also taking a **System of Record (SoR)** role for workflows, while integrating to internal systems for critical retirement product processing.
+
+Here are **intelligent, probing questions** (structured into categories) that both clarify scope and open opportunities to layer in **GenAI / AI agent augmentation**.
+
+---
+
+## **1. Scope and Architecture Alignment**
+
+* Will ServiceNow FSO serve as the **primary SoR** for all IR/GR workflows, or will legacy policy admin systems continue to hold authoritative records for contracts and payments?
+* How will **data ownership and golden record strategy** be defined between ServiceNow, MDM, and external admin/finance systems?
+* For migration, do we anticipate a **big-bang cutover** by plan/product, or a **co-existence mode** where some flows remain in legacy while new ones run in ServiceNow?
+
+---
+
+## **2. Workflow & Business Process**
+
+* How standardized are **workflows for IR vs GR**? Can we unify them at a framework level or do they require product-specific divergence?
+* What are the **triggers for new business workflows** (e.g., digital application, paper submission, advisor portal)?
+* For payments, are workflows **real-time validations** (fraud check, suitability, producer validation) or **batch-driven**?
+* How are **exception cases** (incomplete forms, mismatched producer licensing, rejected transfers) handled today, and how much automation is expected in FSO?
+* Are **asset transfers and rollovers** primarily manual today? Would AI agents for **document classification, extraction, and anomaly detection** add value here?
+
+---
+
+## **3. API & Integration**
+
+* What is the **integration pattern**—ServiceNow as API consumer only, or also exposing APIs back to internal systems?
+* Are there existing **API gateways / ESBs** that should be leveraged for SOAP/REST calls, or will ServiceNow talk directly to each system?
+* For **commission processing**, are APIs synchronous (real-time commission validation) or batch-driven file feeds?
+* What are the latency/throughput requirements for **cash accounting batch processing**?
+
+---
+
+## **4. Data, Documents & Content Management**
+
+* What is the current **document processing pipeline** (OCR, classification, indexing)? Should ServiceNow consume processed metadata only, or run AI-powered ingestion natively?
+* Do we need AI-driven **document summarization or redaction** (for regulatory and audit cases)?
+* For **letter generation & correspondence**, should GenAI agents assist in **templated vs dynamic personalized communication**?
+
+---
+
+## **5. Regulatory & Compliance**
+
+* For **NY Reg 60** and other regulations, how detailed must the **audit trail** be—click-level user activity, or transaction-level only?
+* How is **suitability assessment** currently implemented (rule-based engine, manual checklist)? Would there be scope for **AI-driven suitability recommendation** alongside rules?
+* What is the **retention and access requirement** for correspondence and audit data across IR and GR lines?
+
+---
+
+## **6. AI Agent & GenAI Opportunities**
+
+* Would you expect **AI copilots inside ServiceNow** to guide case workers (e.g., “Summarize applicant’s prior submissions” or “Highlight missing compliance documents”)?
+* Should **GenAI document agents** classify incoming forms (transfer requests, applications) and map them into workflow fields automatically?
+* Do we envision **fraud detection AI agents** supplementing existing fraud APIs (pattern recognition from documents, correspondence, or transaction anomalies)?
+* For migration, should AI agents assist in **data validation / cleansing / mapping** when moving records product by product?
+* For **interactive letters and correspondence**, should we implement GenAI for **context-aware drafting** that aligns with regulatory templates, or stick to rules-based merges?
+* Do we need **predictive analytics agents** (e.g., flagging high-risk transfers, estimating completion time for pending business) as part of dashboards?
+
+---
+
+## **7. Operational & Change Management**
+
+* What are the **expected user personas** (internal operations, advisors, compliance officers)? Should their FSO experience differ?
+* Are we building a **single unified portal** for all IR/GR workflows, or will producers/advisors access via their existing portals with FSO integration in the background?
+* How will **training and adoption** be handled—are users expecting an “agentic assistant” inside ServiceNow to help them learn new workflows?
+
+---
+
+👉 These questions not only clarify the **scope of ServiceNow FSO implementation**, but also help surface where **GenAI-powered agents** can **automate, guide, and enhance** the retirement business workflows.
+
+Would you like me to **map out AI agent use-cases against the workflow lifecycle** (new business → payments → transfers → compliance → reporting) so you can see where they naturally plug in?
