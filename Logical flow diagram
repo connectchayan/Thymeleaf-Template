@@ -1,0 +1,84 @@
+%% Diagram Title: Document Ingestion Pipeline - Logical Flow
+
+flowchart TD
+    %% ======================================
+    %% STYLE DEFINITIONS
+    %% ======================================
+    classDef actor fill:#337AB7,stroke:#2E6DA4,color:#fff,stroke-width:1px;
+    classDef process fill:#5CB85C,stroke:#4CAE4C,color:#fff,stroke-width:1px;
+    classDef datastore fill:#F0AD4E,stroke:#EEA236,color:#fff,stroke-width:1px;
+    classDef control fill:#5BC0DE,stroke:#46B8DA,color:#fff,stroke-width:1px;
+    classDef external fill:#D9534F,stroke:#D43F3A,color:#fff,stroke-width:1px;
+
+    %% ======================================
+    %% SYSTEM OF ENGAGEMENT
+    %% ======================================
+    subgraph SOE [System of Engagement]
+        WEB[Web Application]:::actor
+        SFTP[SFTP Interface]:::actor
+        SP[SharePoint Portal]:::actor
+    end
+
+    %% ======================================
+    %% LANDING ZONE
+    %% ======================================
+    subgraph LZ [Landing Zone]
+        LZ_File[Uploaded Files]:::datastore
+    end
+
+    %% ======================================
+    %% ORCHESTRATOR LAYER
+    %% ======================================
+    subgraph ORCH [Orchestration Layer]
+        ORCH_Validate[Validate Schema]:::process
+        ORCH_Catalog[Update Data Catalogue<br/>Input Output DataViews and Pipeline Details]:::process
+        ORCH_Trigger[Trigger Ingestion Pipeline]:::process
+    end
+
+    %% ======================================
+    %% DATA CATALOGUE
+    %% ======================================
+    subgraph DC [Data Catalogue]
+        DC_Metadata[Metadata Repository]:::datastore
+    end
+
+    %% ======================================
+    %% INGESTION PIPELINE
+    %% ======================================
+    subgraph PIPE [Ingestion Pipeline]
+        IP_Read[Read File]:::process
+        IP_Validate[Data Validation]:::process
+        IP_Normalize[Normalization]:::process
+        IP_StoreDB[Store Domain Objects<br/>into Database]:::process
+        IP_Vector[Store Document Summary<br/>into VectorDB]:::process
+    end
+
+    %% ======================================
+    %% DATA STORAGE TARGETS
+    %% ======================================
+    subgraph TARGETS [Data Storage]
+        DB[Domain Database]:::datastore
+        VDB[Vector Database]:::datastore
+    end
+
+    %% ======================================
+    %% FLOW CONNECTIONS
+    %% ======================================
+    WEB -->|Upload File| LZ_File
+    SFTP -->|Upload File| LZ_File
+    SP -->|Upload File| LZ_File
+
+    LZ_File --> ORCH_Validate
+    ORCH_Validate --> ORCH_Catalog
+    ORCH_Catalog --> DC_Metadata
+    ORCH_Catalog --> ORCH_Trigger
+    ORCH_Trigger --> IP_Read
+
+    IP_Read --> IP_Validate
+    IP_Validate --> IP_Normalize
+    IP_Normalize --> IP_StoreDB
+    IP_StoreDB --> DB
+    IP_Normalize --> IP_Vector
+    IP_Vector --> VDB
+
+    %% ============================
