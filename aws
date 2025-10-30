@@ -1,0 +1,69 @@
+graph TD
+    VPC["AWS VPC"]
+
+    %% Public Subnet
+    subgraph PUB["Public Subnet"]
+        ALB["Application Load Balancer"]
+        NAT["NAT Gateway"]
+        APIGW["Amazon API Gateway"]
+        APPFRONT["AWS App Runner Frontend"]
+        BASTION["Bastion Host"]
+    end
+
+    %% Private Subnet
+    subgraph PRIV["Private Subnet"]
+        FARGATE["AWS Fargate Microservices"]
+        LAMBDA["AWS Lambda Functions - Ingestion Phases"]
+        STEP["AWS Step Functions - Orchestration"]
+        DATACAT["Data Catalog Microservice"]
+        OPENSEARCH["OpenSearch Vector Database on EC2"]
+        DYNAMO["Amazon DynamoDB via VPC Endpoint"]
+        S3["Amazon S3 via VPC Endpoint"]
+        NATGW["Outbound Internet Access via NAT Gateway"]
+        AGENTS["LangGraph Agents Deployment"]
+    end
+
+    %% Management Layer
+    subgraph MGMT["Management and Monitoring"]
+        CW["Amazon CloudWatch"]
+        SM["AWS Secrets Manager"]
+        IAM["AWS IAM"]
+    end
+
+    %% Connections
+    APPFRONT --> APIGW
+    APIGW --> ALB
+    ALB --> FARGATE
+    FARGATE --> DATACAT
+    FARGATE --> LAMBDA
+    LAMBDA --> STEP
+    STEP --> OPENSEARCH
+    STEP --> DYNAMO
+    STEP --> S3
+    FARGATE --> AGENTS
+    FARGATE --> NATGW
+    PRIV --> MGMT
+    PUB --> MGMT
+    BASTION --> PRIV
+
+    %% Styling
+    style PUB fill:#e3f2fd,stroke:#2196f3,stroke-width:2px,rounded-corners:15px
+    style PRIV fill:#e8f5e9,stroke:#43a047,stroke-width:2px,rounded-corners:15px
+    style MGMT fill:#fff3e0,stroke:#fb8c00,stroke-width:2px,rounded-corners:15px
+    style ALB fill:#bbdefb,stroke:#1976d2
+    style APIGW fill:#bbdefb,stroke:#1976d2
+    style APPFRONT fill:#bbdefb,stroke:#1976d2
+    style NAT fill:#bbdefb,stroke:#1976d2
+    style BASTION fill:#bbdefb,stroke:#1976d2
+    style FARGATE fill:#c8e6c9,stroke:#2e7d32
+    style LAMBDA fill:#c8e6c9,stroke:#2e7d32
+    style STEP fill:#c8e6c9,stroke:#2e7d32
+    style DATACAT fill:#c8e6c9,stroke:#2e7d32
+    style OPENSEARCH fill:#c8e6c9,stroke:#2e7d32
+    style DYNAMO fill:#c8e6c9,stroke:#2e7d32
+    style S3 fill:#c8e6c9,stroke:#2e7d32
+    style AGENTS fill:#c8e6c9,stroke:#2e7d32
+    style NATGW fill:#c8e6c9,stroke:#2e7d32
+    style CW fill:#ffe0b2,stroke:#f57c00
+    style SM fill:#ffe0b2,stroke:#f57c00
+    style IAM fill:#ffe0b2,stroke:#f57c00
