@@ -1,0 +1,121 @@
+import json
+import uuid
+from docx import Document
+
+def generate_uuid():
+    return str(uuid.uuid4())
+
+def parse_docx_to_json(file_path):
+    doc = Document(file_path)
+
+    json_output = {
+        "document_id": generate_uuid(),
+        "document_name": file_path.split("/")[-1],
+        "sections": []
+    }
+
+    current_section = None
+    current_subsection = None
+
+    for para in doc.paragraphs:
+        text = para.text.strip()
+        if not text:
+            continue
+
+        style = para.style.name
+
+        # Section: Heading 1
+        if style.startswith("Heading 1"):
+            current_section = {
+                "id": generate_uuid(),
+                "section_name": text,
+                "subsections": []
+            }
+            json_output["sections"].append(current_section)
+            current_subsection = None
+
+        # Subsection: Heading 2
+        elif style.startswith("Heading 2"):
+            if current_section is None:
+                # orphan subsection (handle gracefully)
+                current_section = {
+                    "id": generate_uuid(),
+                    "section_name": "Untitled Section",
+                    "subsections": []
+                }
+                json_output["sections"].append(current_section)
+
+            current_subsection = {
+                "id": generate_uuid(),
+                "subsection_name": text,
+                "paragraphs": [],
+                "tables": []
+            }
+            current_section["subsections"].append(current_subsection)
+
+        # Paragraphs
+        else:
+            if current_subsection is None:
+                # no subsection → attach to section
+                if current_section is None:
+                    current_section = {
+                        "id": generate_uuid(),
+                        "section_name": "Default Section",
+                        "subsections": []
+                    }
+                    json_output["sections"].append(current_section)
+
+                current_subsection = {
+                    "id": generate_uuid(),
+                    "subsection_name": "General",
+                    "paragraphs": [],
+                    "tables": []
+                }
+                current_section["subsections"].append(current_subsection)
+
+            current_subsection["paragraphs"].append({
+                "id": generate_uuid(),
+                "text": text
+            })
+
+    # Handle tables
+    for table in doc.tables:
+        table_data = []
+        for row in table.rows:
+            row_data = [cell.text.strip() for cell in row.cells]
+            table_data.append(row_data)
+
+        table_json = {
+            "id": generate_uuid(),
+            "table_description": "Extracted table from document",
+            "table_chunk": table_data
+        }
+
+        # Attach last known subsection (or section)
+        if current_subsection:
+            current_subsection["tables"].append(table_json)
+        elif current_section:
+            if not current_section["subsections"]:
+                current_section["subsections"].append({
+                    "id": generate_uuid(),
+                    "subsection_name": "Tables",
+                    "paragraphs": [],
+                    "tables": [table_json]
+                })
+            else:
+                current_section["subsections"][-1]["tables"].append(table_json)
+
+    return json_output
+
+
+# Example usage:
+if __name__ == "__main__":
+    input_docx = "sample.docx"
+    result_json = parse_docx_to_json(input_docx)
+
+    # Save to file
+    output_path = "output.json"
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(result_json, f, indent=4, ensure_ascii=False)
+
+    print(f"✅ JSON successfully generated and saved to {output_path}")
