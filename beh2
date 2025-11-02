@@ -1,0 +1,275 @@
+"""
+docx_to_schema_json.py
+Reads a .docx file and converts it into a JSON file matching the provided schema.
+
+Dependencies:
+    pip install python-docx
+"""
+
+import re
+import uuid
+import json
+from datetime import date
+from docx import Document
+from docx.oxml.ns import qn
+
+INPUT_DOCX = r"C:\CognizantCodeHub\AMGEN_Analysis\Dummy_PTD-401287_v6.0_Vectibix - CM Changes.docx"
+OUTPUT_JSON = "output.json"
+
+# Regex to detect numbered headings like:
+# 1. Title
+# 1.1. SubTitle
+# 4.3.1 Something
+HEADING_RE = re.compile(r'^\s*(\d+(?:\.\d+)*)(?:\.)?\s+(.*)$')  # group1: numbers, group2: title text
+
+def iter_block_items(parent):
+    """
+    Yield block-level elements (paragraphs and tables) in document order.
+    Each yielded item is a tuple ('p', paragraph_object) or ('tbl', table_object)
+    """
+    for child in parent.element.body.iterchildren():
+        if child.tag == qn('w:p'):
+            yield ('p', parent.paragraphs[parent.element.body._p_idx(child)])
+        elif child.tag == qn('w:tbl'):
+            # must find which table object corresponds to this _tbl
+            # the tables list is in document order, so pop from front approach:
+            # but safe approach: find index by element pointer
+            tbl = None
+            for t in parent.tables:
+                if t._tbl is child:
+                    tbl = t
+                    break
+            if tbl is not None:
+                yield ('tbl', tbl)
+            else:
+                # fallback: yield raw xml (unlikely)
+                continue
+
+def make_uuid():
+    return str(uuid.uuid4())
+
+def extract_table_chunk(table):
+    """
+    Convert docx table to a simple serializable object with headers and rows.
+    - headers: if the first row appears to be header (non-empty), use it; otherwise headers = []
+    - rows: list of lists of cell texts
+    """
+    rows = []
+    for r in table.rows:
+        row_cells = [cell.text.strip() for cell in r.cells]
+        rows.append(row_cells)
+
+    if len(rows) == 0:
+        headers = []
+    else:
+        # assume first row is header if not all empty
+        first_row = rows[0]
+        if any(cell for cell in first_row):
+            headers = first_row
+            body_rows = rows[1:]
+        else:
+            headers = []
+            body_rows = rows
+
+    return {
+        "headers": headers,
+        "rows": body_rows
+    }
+
+def build_structure(doc):
+    """
+    Build rwDocument -> sections -> subSections -> paragraphs + tables
+    """
+    sections = []
+    current_section = None
+    current_subsection = None
+    last_para_text = None  # used for tableDesc detection
+    last_para_is_heading = False
+
+    # To preserve order we iterate body-level elements
+    # NOTE: python-docx does not provide a built-in mapping from xml child to paragraph index.
+    # We use a helper that matches _p and _tbl objects; the helper above uses matching by identity.
+    for kind, element in iter_block_items(doc):
+        if kind == 'p':
+            text = element.text.strip()
+            # skip empty paragraphs (but still keep as last_para_text for tableDesc if non-empty)
+            if not text:
+                last_para_text = ""
+                last_para_is_heading = False
+                continue
+
+            # check if it's a numbered heading like '4.' or '4.1' at start
+            m = HEADING_RE.match(text)
+            if m:
+                numbering = m.group(1).rstrip('.')  # e.g. '4' or '4.1'
+                title_text = m.group(2).strip()
+                # determine level by dot count
+                dot_count = numbering.count('.')
+
+                if dot_count == 0:
+                    # Section level
+                    current_section = {
+                        "id": make_uuid(),
+                        "sectionId": numbering,
+                        "title": title_text,
+                        "subSections": []
+                    }
+                    sections.append(current_section)
+                    current_subsection = None
+                else:
+                    # Subsection (1.1 or 4.3.1 etc)
+                    if current_section is None:
+                        # Document has subsection prior to any section detected: create a placeholder section
+                        current_section = {
+                            "id": make_uuid(),
+                            "sectionId": numbering.split('.')[0],
+                            "title": "Untitled Section " + numbering.split('.')[0],
+                            "subSections": []
+                        }
+                        sections.append(current_section)
+
+                    subsec = {
+                        "id": make_uuid(),
+                        "subSectionId": numbering,
+                        "title": title_text,
+                        "paragraphs": [],
+                        "tables": []
+                    }
+                    current_section["subSections"].append(subsec)
+                    current_subsection = subsec
+
+                last_para_text = text
+                last_para_is_heading = True
+            else:
+                # Regular paragraph
+                # store paragraph in current_subsection.paragraphs; if no subsection, create a default one
+                if current_section is None:
+                    # create placeholder section
+                    current_section = {
+                        "id": make_uuid(),
+                        "sectionId": "0",
+                        "title": "Untitled Section 0",
+                        "subSections": []
+                    }
+                    sections.append(current_section)
+
+                if current_subsection is None:
+                    # create a default subsection that maps to the sectionId (keep original sectionId)
+                    default_sub_id = current_section["sectionId"]
+                    default_sub = {
+                        "id": make_uuid(),
+                        "subSectionId": default_sub_id,
+                        "title": current_section["title"] + " - General",
+                        "paragraphs": [],
+                        "tables": []
+                    }
+                    current_section["subSections"].append(default_sub)
+                    current_subsection = default_sub
+
+                # append paragraph
+                para_obj = {
+                    "id": make_uuid(),
+                    "text": text
+                }
+                current_subsection["paragraphs"].append(para_obj)
+
+                last_para_text = text
+                last_para_is_heading = False
+
+        elif kind == 'tbl':
+            table = element
+            # tableDesc should be the paragraph immediately preceding the table (if any and non-heading)
+            table_desc = None
+            if last_para_text and (not last_para_is_heading):
+                # use last_para_text as table description and ensure it's not already stored as a paragraph for the subsection
+                table_desc = last_para_text
+                # If last paragraph was stored as a paragraph in the subsection, remove it (since it's a table description)
+                if current_subsection and current_subsection.get("paragraphs"):
+                    # if last paragraph equals last stored paragraph, pop it
+                    if current_subsection["paragraphs"] and current_subsection["paragraphs"][-1]["text"] == last_para_text:
+                        current_subsection["paragraphs"].pop()
+            else:
+                table_desc = ""
+
+            if current_section is None:
+                # create placeholder section/subsection if table appears before headings
+                current_section = {
+                    "id": make_uuid(),
+                    "sectionId": "0",
+                    "title": "Untitled Section 0",
+                    "subSections": []
+                }
+                sections.append(current_section)
+
+            if current_subsection is None:
+                default_sub_id = current_section["sectionId"]
+                default_sub = {
+                    "id": make_uuid(),
+                    "subSectionId": default_sub_id,
+                    "title": current_section["title"] + " - General",
+                    "paragraphs": [],
+                    "tables": []
+                }
+                current_section["subSections"].append(default_sub)
+                current_subsection = default_sub
+
+            table_chunk = extract_table_chunk(table)
+            table_obj = {
+                "id": make_uuid(),
+                "tableDesc": table_desc or "",
+                "tableChunk": table_chunk
+            }
+            current_subsection["tables"].append(table_obj)
+
+            # after table, reset last_para_text (so the same paragraph is not reused)
+            last_para_text = None
+            last_para_is_heading = False
+
+    return {
+        "sections": sections
+    }
+
+def build_full_json(rw_document):
+    """
+    Wrap with required root-level props per schema. Some metadata here are placeholders - update as needed.
+    """
+    output = {
+        "dataViewId": make_uuid(),
+        "dataViewName": "Converted - " + INPUT_DOCX.split('\\')[-1],
+        "metadata": {
+            "document_id": INPUT_DOCX.split('\\')[-1],
+            "title": "",        # optional: extract from doc properties if needed
+            "version": "",      # optional: fill if available
+            "date": date.today().isoformat(),
+            "authors": ["Unknown"],  # replace with real authors if you can parse them
+            "tags": []
+        },
+        "product": {
+            "productId": make_uuid(),
+            "productName": ""
+        },
+        "equipment": {
+            "equipmentId": make_uuid(),
+            "equipmentName": ""
+        },
+        "rwDocument": rw_document
+    }
+    return output
+
+def main():
+    doc = Document(INPUT_DOCX)
+    rw_document = build_structure(doc)
+    out = build_full_json(rw_document)
+
+    # Validate basic schema shape (lightweight): required top-level keys
+    for required in ["dataViewId", "dataViewName", "metadata", "product", "equipment", "rwDocument"]:
+        if required not in out:
+            raise ValueError(f"Missing top-level key {required}")
+
+    with open(OUTPUT_JSON, "w", encoding="utf-8") as f:
+        json.dump(out, f, indent=2, ensure_ascii=False)
+
+    print(f"Converted document saved to {OUTPUT_JSON}")
+
+if __name__ == "__main__":
+    main()
